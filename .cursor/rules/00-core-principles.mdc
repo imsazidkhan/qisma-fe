@@ -1,0 +1,52 @@
+---
+description: Core engineering principles that apply to every file in the project
+alwaysApply: true
+---
+
+# Core Principles
+
+Write code assuming another engineer will maintain it for years.
+
+## TypeScript
+
+- TypeScript strict mode is non-negotiable.
+- Never use `any` unless absolutely unavoidable. Prefer `unknown` and narrow.
+- Type every function signature (params + return). No implicit return types on exported functions.
+- Use enums or `as const` objects for magic strings.
+
+```ts
+// ❌ BAD
+const status = 'sent';
+function handle(payload) { ... }
+
+// ✅ GOOD
+const STATUS = { idle: 'idle', sent: 'sent' } as const;
+function handle(payload: SendOtpPayload): void { ... }
+```
+
+## Naming & exports
+
+- Semantic naming for variables and functions. `isPhoneValid`, not `flag`.
+- Prefer named exports over default exports.
+- Centralize magic strings as constants (`src/constants/`).
+
+## Style
+
+- Use early returns to reduce nesting. Avoid deeply nested ternaries.
+- Prefer explicitness over cleverness.
+- Self-documenting code first; comments only when intent isn't obvious from code.
+- Delete unused files, imports, and commented-out code on sight.
+- Add comments only to explain WHY (intent, trade-off), never WHAT.
+
+## Security & environment
+
+- Use environment variables for configs (`EXPO_PUBLIC_*`).
+- Never store secrets in code or in version control.
+- Auth tokens go in secure storage (Keychain / Keystore via `expo-secure-store`),
+  never in `AsyncStorage` or MMKV.
+- Strip PII (phone, email, OTP, sessionId) from logs and analytics.
+
+## Logging
+
+- Use the centralized logging utility (`@/services/logger`).
+- No `console.log` in committed code; lint blocks it on CI.

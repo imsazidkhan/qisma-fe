@@ -1,0 +1,68 @@
+---
+description: React Native runtime concerns — storage, lifecycle, keyboard, network, providers
+alwaysApply: true
+---
+
+# React Native Platform & Runtime
+
+The mobile environment is hostile: backgrounding, low memory, flaky networks,
+keyboards, gestures. Code defensively for it.
+
+## Storage
+
+- Use **MMKV** (`react-native-mmkv`) over `AsyncStorage`. Synchronous, ~30x
+  faster, native-backed.
+- Auth tokens go in `expo-secure-store` (Keychain / Keystore), NEVER MMKV
+  or AsyncStorage. See `00-core-principles.mdc`.
+- All storage access goes through `@/services/storage` — never call MMKV
+  directly from a screen or hook.
+
+## App lifecycle
+
+- Handle background ↔ foreground correctly via `AppState`.
+  - Pause expensive work (timers, polling, animations) on `background`.
+  - Re-derive time-sensitive state on `active` (don't decrement during
+    background — recompute from absolute timestamps).
+  - Refetch stale server state on resume (TanStack Query's `focusManager`
+    handles this when bound to AppState — keep it bound).
+
+## Keyboard-safe layouts
+
+- Every screen with an input MUST handle the soft keyboard.
+- Use `KeyboardAvoidingView` with `behavior="padding"` on iOS and
+  `behavior="height"` on Android (when `edgeToEdgeEnabled: true`, only
+  `height` reliably shrinks the layout).
+- Pin the primary CTA above the keyboard — never let it scroll out of view.
+  Wrap content in a `ScrollView` with `keyboardShouldPersistTaps="handled"`.
+
+## Network resilience
+
+- Support flaky networks. Subscribe to `@react-native-community/netinfo` at
+  the screen level for any submit-style action; disable submit while offline,
+  re-enable on reconnect.
+- Bind TanStack Query's `onlineManager` to NetInfo — already done in
+  `src/api/onlineManager.ts`. Keep it that way.
+- All requests have an `AbortController` and a 10–15s timeout. Cancel
+  in-flight requests on screen unmount.
+- Treat 5xx as ambiguous — the side effect MIGHT have happened. Surface to
+  the user; don't silently retry side-effecting writes.
+
+## Providers & Context
+
+- Avoid excessive Context providers. Each provider re-renders its entire
+  subtree on change. If a value changes often, lift it OUT of Context and
+  put it in Zustand with selectors.
+- The provider stack in `_layout.tsx` is a budget — keep it under 6 layers.
+
+## Loading & feedback
+
+- Use skeleton loaders for content that has a known shape; spinners only for
+  ambiguous waits (< 1s expected). Skeletons read as "this is what's coming"
+  — spinners read as "something is broken".
+
+## Testing matrix
+
+- Test on a low-memory Android device (≤ 2GB RAM) before shipping.
+- Test on iOS smallest supported screen + Android smallest supported screen.
+- Test with airplane mode toggled mid-flow.
+- Test backgrounding mid-request, mid-OTP, mid-form.

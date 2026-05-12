@@ -1,0 +1,54 @@
+---
+description: Design tokens, theming, accessibility, and motion
+alwaysApply: true
+---
+
+# Design System
+
+The codebase has a single source of truth for visual tokens. Never go around it.
+
+## Tokens
+
+- Never hardcode colors, spacing, radius, typography, or shadows.
+- Always import from `@/theme` (`useThemeColors`, `space`, `typography`, `radius`).
+- New visual values get added as tokens first, then used.
+
+```tsx
+// ❌ BAD
+<View style={{ padding: 16, backgroundColor: '#0A0A0A', borderRadius: 8 }} />
+
+// ✅ GOOD
+const palette = useThemeColors();
+<View style={{ padding: space.gap, backgroundColor: palette.surfaceElevated, borderRadius: radius.sm }} />
+```
+
+## Theme awareness
+
+- Support light and dark mode from day one. Every component subscribes to
+  `useThemeColors()` so palette swaps live.
+- Verify every component state (idle, hover, pressed, disabled, loading, error)
+  in both palettes before merging.
+
+## Typography
+
+- Use the scalable typography system (`textStyles`, `typography.fontSize.*`).
+- Honor user font scale; never set absolute pixel sizes outside tokens.
+
+## Accessibility (non-optional)
+
+- Every interactive element gets `accessibilityRole`, `accessibilityLabel`,
+  and `accessibilityState` where applicable.
+- Live status changes announce via `AccessibilityInfo.announceForAccessibility`.
+- Respect `AccessibilityInfo.isReduceMotionEnabled()` — skip non-essential motion.
+- Verify focus order, contrast (WCAG AA), and screen-reader output per state.
+
+## Motion
+
+- Animations stay subtle, performant, and on-brand (calm, mechanical).
+- Use Reanimated worklets; avoid layout-thrashing JS animations.
+- Loading states use proper skeleton placeholders, not blocking spinners.
+
+## Offline & feedback
+
+- Handle offline states gracefully (banner, disabled CTAs).
+- Always show loading, success, and error states for any async UI.

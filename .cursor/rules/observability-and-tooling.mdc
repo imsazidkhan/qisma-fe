@@ -1,0 +1,40 @@
+---
+description: Logging, crash reporting, performance monitoring, CI, and dependency hygiene
+alwaysApply: true
+---
+
+# Observability
+
+- Track crashes with Sentry. `src/services/logger.ts` is the facade — wire Sentry
+  init in `_layout.tsx`, never sprinkle `Sentry.*` calls across the app.
+- Tag every error with `error_code`, `endpoint`, `app_version`, and the
+  request-id from response headers when available.
+- Monitor app performance continuously (Sentry Performance / startup metrics).
+- No PII in any logged event — phone, OTP, sessionId, email are forbidden in
+  logs and analytics. Mask before logging.
+- Analytics events are typed constants in `src/constants/analyticsEvents.ts`.
+  Add an event there before firing it.
+
+# Tooling & CI
+
+- Enforce linting in CI. PRs that fail lint do not merge.
+- Enforce type checking (`tsc --noEmit`) in CI. PRs that fail tsc do not merge.
+- Use pre-commit hooks (`lint-staged` + `prettier --write`) to keep formatting
+  uniform without manual effort.
+
+# Tests
+
+- Write **unit tests** for critical pure logic: validation, error parsers, store
+  transitions, utility functions.
+- Write **E2E tests** (Detox / Maestro) for important user flows: login,
+  payment, onboarding. Pick the top 3 flows; don't try to cover everything.
+- Tests live next to the code they test (`foo.ts` + `foo.test.ts`) or under a
+  feature's `__tests__/` folder.
+
+# Dependencies
+
+- Keep dependencies minimal. Every dep is a long-term maintenance liability.
+- Audit dependencies regularly (`pnpm audit`, `npm-check-updates -i`).
+- Prefer actively maintained libraries (last release < 6 months, > 100 weekly
+  downloads).
+- Don't pull a 200KB utility lib for a 5-line helper. Write the helper.

@@ -1,0 +1,45 @@
+---
+description: Custom hooks, effects, and lifecycle abstractions
+globs: ["**/use-*.ts", "**/use-*.tsx", "**/use*.ts", "**/use*.tsx", "**/*.tsx"]
+alwaysApply: false
+---
+
+# Hooks & Effects
+
+Hooks are the only legal way to do lifecycle / side effects. Use them carefully.
+
+## Authoring hooks
+
+- One responsibility per hook. Never mix unrelated concerns.
+- Name hooks `useThing`. Returns are documented in the type.
+- Wrap third-party imperative APIs in custom hooks (`useNetworkStatus`,
+  `useCountdownToTimestamp`) — keep components free of subscriptions.
+
+## Effects
+
+- Avoid side effects during rendering. Anything mutating, fetching, subscribing
+  goes in `useEffect` / `useLayoutEffect`.
+- Always clean up subscriptions and listeners in the effect's return function.
+
+```tsx
+// ❌ BAD — leaks the listener
+useEffect(() => {
+  AppState.addEventListener('change', onChange);
+}, []);
+
+// ✅ GOOD — explicit cleanup
+useEffect(() => {
+  const sub = AppState.addEventListener('change', onChange);
+  return () => sub.remove();
+}, [onChange]);
+```
+
+- Effect dependency arrays must be exhaustive. `// eslint-disable-next-line` is
+  a code smell — fix the dependency, don't silence the rule.
+- Effects should be deterministic — same inputs → same outputs / same subscriptions.
+
+## Pure utilities
+
+- Keep utility functions pure. No I/O, no React, no globals.
+- Pure utils live in `src/utils/`. They're the easiest things to unit-test.
+- Side-effecting helpers go in `src/services/` instead.

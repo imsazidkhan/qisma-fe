@@ -1,0 +1,34 @@
+---
+description: Forms (React Hook Form + validation) and navigation conventions
+globs: ["**/*Form*.tsx", "**/forms/**/*.tsx", "src/app/**/*.tsx", "**/navigation/**/*.ts"]
+alwaysApply: false
+---
+
+# Forms
+
+- Use React Hook Form (`react-hook-form`) for any form with > 1 field.
+- Build reusable form components (`FormField`, `FormSubmit`) on top of the UI
+  primitives — never re-implement label / error layout per screen.
+- Centralize validation schemas (Zod) in `src/features/<name>/schemas/`.
+  Same schema validates the form AND the API response.
+- Never duplicate validation logic between client and server boundaries.
+
+```ts
+// ❌ BAD — validation re-stated in two places
+if (phone.length !== 10) showError('…');
+const parsed = z.string().length(10).parse(phone);
+
+// ✅ GOOD — one schema, both sides
+const phoneSchema = z.string().length(10);
+const result = phoneSchema.safeParse(phone);
+```
+
+# Navigation
+
+- Use Expo Router. Routes live ONLY in `src/app/`.
+- Centralize route names as constants (`src/constants/routes.ts`) — no
+  string-literal `router.push('/auth/otp')` calls in screens.
+- Type navigation params at the route level (Expo Router's typed routes feature).
+- Keep navigation config (initial route, deep-link prefixes, screen options)
+  centralized in `src/app/_layout.tsx`.
+- Deep links MUST validate their payload before applying (e.g., OTP autofill).

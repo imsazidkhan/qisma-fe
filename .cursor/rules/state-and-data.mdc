@@ -1,0 +1,50 @@
+---
+description: Server state, client state, API layer, and data validation
+alwaysApply: true
+---
+
+# State & Data
+
+Server state and client state are different. Treat them differently.
+
+## State management
+
+- **Server state → TanStack Query.** Anything fetched from a backend.
+- **Client state → Zustand.** UI state, flow state machines, ephemeral UI flags.
+- Keep state close to where it is used. Lift only when truly shared.
+- Avoid giant global stores. Slice by feature.
+- Never duplicate derived state — compute it from source.
+- Never mutate state directly. Prefer immutable patterns (`set(s => …)`).
+
+```ts
+// ❌ BAD — derived state stored separately, can drift
+const [phone, setPhone] = useState('');
+const [isValid, setIsValid] = useState(false);
+useEffect(() => setIsValid(phone.length === 10), [phone]);
+
+// ✅ GOOD — derive on render
+const [phone, setPhone] = useState('');
+const isValid = phone.length === 10;
+```
+
+## API layer
+
+- Centralize API configuration in `src/api/` (base URL, headers, timeout, abort).
+- Never call `fetch` directly inside a component. Wrap every endpoint in a typed
+  function under `features/<name>/api/`.
+- Type both request and response (`SendOtpRequest`, `SendOtpResponse`).
+- Validate API responses with Zod at the edge (`schema.parse(json)`) before
+  handing data to the rest of the app.
+- Map every backend error code → UI error via a central parser
+  (`parseAuthServiceError`). Never display raw server messages in production.
+- Errors flow through a consistent typed error class (`ApiError`), never raw thrown strings.
+
+## Async patterns
+
+- Use `async/await`, never raw `.then` chains.
+- Always handle loading, success, AND error explicitly.
+- Never ignore rejected promises. `void promise.catch(...)` if you really must.
+- Retry only what's safe to retry (idempotent reads, network-only failures).
+  Never auto-retry side-effecting writes (`/otp/send`).
+- Debounce expensive user actions (search, autosave). Throttle high-frequency
+  events (scroll, gesture).

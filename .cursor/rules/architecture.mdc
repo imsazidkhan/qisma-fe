@@ -1,0 +1,45 @@
+---
+description: Project architecture, folder layout, and module boundaries
+alwaysApply: true
+---
+
+# Architecture
+
+Make architecture predictable and boring. Optimize for new-developer onboarding.
+
+## Folder structure (feature-based)
+
+```
+src/
+├── api/               # Generic API client, queryClient, error envelope
+├── app/               # Expo Router routes only — thin screens
+├── components/ui/     # Reusable UI primitives (Button, Input, …)
+├── constants/         # Magic-string-free constants & event names
+├── features/<name>/   # Per-feature module
+│   ├── api/           # endpoint wrappers + error parser
+│   ├── components/    # feature-specific components
+│   ├── hooks/         # useMutation/useQuery wrappers
+│   ├── store/         # Zustand state slice
+│   └── types/         # wire-level types
+├── hooks/             # Cross-feature hooks
+├── i18n/              # locales + i18next bootstrap
+├── services/          # Storage, deviceId, analytics, logger
+├── theme/             # Tokens + ThemeProvider
+└── utils/             # Pure helpers (no React, no I/O)
+```
+
+## Module rules
+
+- Separate UI, domain, and data layers strictly.
+- Use absolute imports via `@/` alias for app modules.
+- Prefer one concern per file; split when a file outgrows ~150 lines.
+- Avoid circular dependencies. If two files need each other, extract the shared bit.
+- Use DTOs to map API shapes to domain models — never pass wire types to UI.
+- Centralize route names (`src/constants/routes.ts`) and permission logic.
+- Use feature flags for controlled rollouts.
+
+## File naming
+
+- File names: kebab-case for non-component modules (`use-send-otp.ts`).
+- Component files keep React's PascalCase convention (`Button.tsx`).
+- One exported component per file.

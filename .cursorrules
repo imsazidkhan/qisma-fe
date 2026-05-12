@@ -1,0 +1,274 @@
+# Qisma — Cursor Project Rules
+
+Expo Router + NativeWind app. **Design language: Nothing OS** — monochrome,
+industrial, minimal, technical, restrained, typography-first, tactile,
+high whitespace, calm motion.
+
+TypeScript strict, React 19, Expo SDK 54, React Native 0.81.
+
+---
+
+## Design Identity (read first)
+
+The UI must feel like **Nothing OS / premium hardware software / industrial
+minimalism / technical futuristic interface**.
+
+It must NOT feel like: generic SaaS dashboard, Material Design app, colorful
+startup landing page, gaming UI, or social media app.
+
+When in doubt: **remove**, don't add. Whitespace > separators. Type > chrome.
+
+---
+
+## Visual Rules
+
+- Near-black backgrounds (`bg-background`, `bg-surface*`).
+- Semantic surface hierarchy — use `surfaceBase / surfaceElevated / surfaceFloating / surfaceRaised / surfaceOverlay` instead of arbitrary tints.
+- **Thin borders, not shadows.** Prefer `border border-border` over elevation.
+- Outlined components > filled components.
+- Whitespace > separators / dividers.
+- Restrained contrast — avoid pure-white-on-pure-black slabs of text.
+- Conservative `rounded-*` — small radii (`rounded-sm`/`rounded-md`/`rounded-card`), never pill-everything.
+
+**Forbidden:** colorful UI, gradients (unless explicitly requested),
+neumorphism, Material Design styling, glassmorphism-heavy UI, random
+elevation shadows, decorative UI without function, oversized CTA buttons.
+
+---
+
+## Color Rules
+
+- **Never hardcode colors.** Always import from `@/theme`.
+- Monochrome palette only. The `accent` is reserved for: focus rings, selected state, single primary CTA per screen, key status indicators.
+- Use subtle overlays (`overlay`, `overlayStrong`, `glass`) instead of colorful fills.
+- Status colors (`success`, `error`, `warning`, `info`) only for genuine status — never decorative.
+
+```tsx
+// ❌ BAD — hardcoded hex, won't react to theme
+<View style={{ backgroundColor: '#0A0A0A' }} />
+<View className="bg-purple-500" />
+
+// ❌ BAD — static `colors` import is dark-only, ignores theme switch
+import { colors } from '@/theme';
+<View style={{ backgroundColor: colors.surfaceElevated }} />
+
+// ✅ GOOD — subscribes to active palette, flips on theme toggle
+import { useThemeColors } from '@/theme';
+const palette = useThemeColors();
+<View style={{ backgroundColor: palette.surfaceElevated }} />
+```
+
+---
+
+## Theme Awareness — EVERYTHING is Light + Dark
+
+Every component, screen, and primitive we ship MUST render correctly in both
+light and dark. This is non-negotiable. The active palette is selected by
+`<ThemeProvider>` (already mounted at the root) and resolves `system` /
+`light` / `dark` preferences.
+
+### Rules
+
+- **Always read colors via `useThemeColors()`** in components. The static
+  `colors` export is the dark palette — fine for token-time constants
+  (e.g. inside `theme/borders.ts` presets) but wrong inside JSX.
+- Both palettes have **identical keys** (`palette.background`,
+  `palette.textPrimary`, etc.). No `if (mode === 'dark')` branching.
+- For Reanimated `useAnimatedStyle`, pass palette colors as the **second-arg
+  deps** so the animated style re-evaluates on theme swap:
+  ```tsx
+  const palette = useThemeColors();
+  const style = useAnimatedStyle(
+    () => ({ borderColor: interpolateColor(p.value, [0, 1], [palette.border, palette.borderFocus]) }),
+    [palette.border, palette.borderFocus],
+  );
+  ```
+- Layout-only `StyleSheet.create` is fine; layer palette-dependent props as
+  inline overrides on the JSX (`style={[styles.x, { color: palette.textPrimary }]}`).
+  Inline styles are only forbidden when expressible as tokens — palette
+  swap is the explicit exception.
+- Status bar / chrome must derive from `useThemeMode()` (`'light' | 'dark'`).
+- **Test in both modes** before merging — the auth screen has a `ThemeToggle`
+  for instant flipping during development.
+
+### NativeWind colour caveat
+
+`bg-background`, `text-textPrimary`, etc. currently resolve to the **dark**
+palette only (Tailwind config consumes the dark tokens). Until we wire
+NativeWind's `dark:` variants:
+
+- ❌ Don't use NativeWind utility classes for color-sensitive surfaces.
+- ✅ Layout-only NativeWind utilities (`flex-*`, `p-*`, `gap-*`,
+  `rounded-*`, `border` width-only) are still encouraged.
+
+### Light-mode accent
+
+In light mode, `palette.accent` is ink-black (`#0A0A0A`), not lime. Don't
+write code that assumes a specific accent hue — read the token.
+
+---
+
+## Typography Rules
+
+Typography is the **primary visual element**.
+
+- Use **mono** (`font-mono*` / `textStyles.code*` / `typography.fontFamily.mono`) for: labels, metadata, timestamps, technical info, counters, status text, IDs, version numbers.
+- Use **uppercase** for system labels (combine with `textStyles.overline` or `tracking-widest uppercase`).
+- Large headings use **restrained weight** — prefer `semiBold` (600) over `bold` (700) for display sizes; reserve `bold` for true emphasis.
+- Avoid overly bold typography across the board.
+- **Tabular numbers** for clocks, stats, prices, counters (use `textStyles.numeric*`).
+
+```tsx
+// metadata
+<Text className="font-mono text-xs uppercase tracking-widest text-textMuted">
+  v1.0.0 · BUILD 240
+</Text>
+
+// heading — restrained weight
+<Text style={textStyles.h1}>Account</Text>  // already semiBold/bold per scale
+
+// stat — tabular
+<Text style={textStyles.numericLarge}>42</Text>
+```
+
+---
+
+## Spacing Rules
+
+- **Strict spacing scale only.** Use `spacing.*` tokens or NativeWind `p-*`/`m-*`/`gap-*` (which map to the same scale).
+- Respect 8pt grid — the spacing scale is built on it.
+- Spacious & intentional layouts. Generous `gap-*` between sections.
+- **Forbidden:** arbitrary spacing (`style={{ padding: 13 }}`, `className="p-[7px]"`), dense UI.
+
+---
+
+## Component Rules
+
+- **Always reuse existing primitives** in `@/components` (Button, Input, Card, Text, Pressable, Avatar, Badge, Divider, Screen, Skeleton).
+- Keep components minimal. Composition > nesting.
+- No unnecessary decorations, no excessive shadows.
+- Outlined Button variants by default; filled only for the single primary action.
+
+---
+
+## Motion Rules
+
+Motion is **mechanical and calm**. Use `@/theme` motion tokens.
+
+- Subtle fade & slide transitions only.
+- **No bounce, no playful springs.** Prefer `transition.standard` / `easing.standard`.
+- Restrained durations — use `duration.fast` / `duration.standard`; reserve `duration.slow` for full-screen transitions.
+- **Forbidden:** cartoon animations, exaggerated spring, parallax for its own sake.
+- ⚠️ **Always import `Easing` from `react-native-reanimated`**, never from
+  `react-native`. The latter is not a worklet and throws at runtime when used
+  with `withTiming` / `withSpring`. (Our `easing.*.rn` tokens already do this.)
+
+```tsx
+import { duration, easing } from '@/theme';
+withTiming(1, { duration: duration.standard.ms, easing: easing.standard.rn });
+```
+
+---
+
+## Folder Structure (sacred — keep it)
+
+```
+src/
+├── api/                  HTTP client, queryClient, endpoints, base URL resolver
+├── app/                  Expo Router routes (config: extra.router.root = 'src/app')
+│   ├── (auth)/           Auth route group
+│   └── (tabs)/           Main tab group
+├── components/ui/        Theme-driven primitives (Button, Input, Card, ...)
+├── constants/            Static config, route names, query keys, storage keys
+├── features/<name>/      Vertical slice — api/, components/, hooks/, screens/, store/, types/
+│   └── auth | home | notifications | profile
+├── hooks/                Cross-cutting hooks (useColorScheme, useAppState, ...)
+├── i18n/                 i18next setup + locales/
+├── navigation/           Navigator types & linking config
+├── services/             Side-effect singletons (analytics, storage, notifications)
+├── store/                Global zustand stores
+├── theme/                ⚠️ SOURCE OF TRUTH — see rules below
+├── types/                Ambient & shared types
+└── utils/                Pure helpers (cn, formatters, validators, ...)
+```
+
+**Don't** add new top-level folders without a strong reason.
+**Do** keep `.gitkeep` in empty scaffold dirs.
+
+---
+
+## Theme — Single Source of Truth
+
+`src/theme/*.tokens.ts` is consumed by **both** `tailwind.config.ts` and the
+`.ts` façades. NEVER hardcode colors, spacing, radii, font sizes, etc.
+
+```tsx
+// ❌ BAD
+<View style={{ padding: 16, backgroundColor: '#0A0A0A', borderRadius: 12 }} />
+<Text style={{ fontSize: 24, fontWeight: '700', color: '#FAFAFA' }}>Hi</Text>
+
+// ✅ GOOD — NativeWind utilities for layout (spacing/radius/typography only)
+<View className="p-4 rounded-card" />
+<Text className="text-2xl font-sans-semibold">Hi</Text>
+
+// ✅ GOOD — palette via the hook (theme-aware)
+import { spacing, textStyles, useThemeColors } from '@/theme';
+const palette = useThemeColors();
+<Text style={[textStyles.h1, { color: palette.textPrimary }]}>Hi</Text>
+```
+
+Adding a token? Edit the `.tokens.ts` file → it auto-flows to Tailwind + TS.
+
+Read `src/theme/THEME.md` before touching anything in `src/theme/`.
+
+---
+
+## Imports
+
+- Use `@/` path alias (configured in `tsconfig.json`) — never relative `../../..`.
+- Re-export feature publics from `features/<name>/index.ts` when one is added.
+- Barrel `@/theme` for tokens; barrel `@/components` for UI primitives.
+
+---
+
+## Code Style
+
+- TypeScript `strict` + `noUncheckedIndexedAccess` — handle `undefined` from arrays/records.
+- Prefer functional components; no class components.
+- **Avoid inline styles** when expressible as NativeWind utilities or theme tokens. Palette-from-`useThemeColors()` overrides on JSX are the explicit exception.
+- No comments that narrate what code does (`// increment counter`). Only comments that explain non-obvious *why*, trade-offs, or constraints.
+- Run `pnpm format` (Prettier) and `pnpm lint` before committing.
+
+---
+
+## Routing (Expo Router)
+
+- Routes live in `src/app/` (NOT root `app/`).
+- Group folders use parens: `(auth)`, `(tabs)`.
+- Layouts: `_layout.tsx` per route group.
+- Use typed routes (`experiments.typedRoutes: true` in `app.config.ts`).
+- Route files stay thin — extract logic into `features/<name>/screens/`.
+
+---
+
+## When Generating UI — Checklist
+
+1. Reuse theme tokens (`@/theme`) — no hex, no px, no arbitrary values.
+2. **Theme-aware:** colors come from `useThemeColors()`. Verify the screen looks right in BOTH light and dark before declaring done (use the in-app `ThemeToggle`).
+3. Match Nothing-style patterns — monochrome, thin borders, generous whitespace.
+4. Lead with typography & spacing; chrome is a last resort.
+5. Reuse `@/components/ui` primitives; don't reinvent Button/Input/Card.
+6. Reduce visual noise — if a divider, shadow, or color isn't earning its place, delete it.
+
+---
+
+## Don't Reintroduce
+
+- Hardcoded hex / px / rem values in components.
+- Static `colors.X` references inside JSX (use `useThemeColors()` — the static export is dark-only and breaks light mode).
+- NativeWind colour utilities for theme-sensitive surfaces (`bg-background`, `text-textPrimary`) — they only render dark today.
+- Inline `StyleSheet.create` for things expressible as NativeWind layout classes.
+- Business logic in `src/app/*` route files — extract to `features/<name>/`.
+- New global stores when a feature-local store would do.
+- Random elevation shadows, gradients, colorful fills, oversized CTAs, bouncy animations.
+- New screens / components that haven't been verified in BOTH light and dark.

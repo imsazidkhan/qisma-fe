@@ -1,0 +1,58 @@
+---
+description: React Native performance — bridge, JS thread, animations, lists, bundle, startup
+alwaysApply: true
+---
+
+# React Native Performance
+
+Default to "production-ready mobile architecture", not "works on my phone".
+
+## Bridge & threading
+
+- Minimize bridge calls. Batch native calls; never poll across the bridge in
+  a `setInterval`. Move repeated work to native modules or Reanimated worklets.
+- Never block the JS thread. Anything > 16ms gets deferred via
+  `InteractionManager.runAfterInteractions`, a worklet, or a native module.
+- Split heavy business logic out of the UI thread (worklets, JSI modules,
+  background tasks) — UI thread is for layout + paint only.
+
+## Animations
+
+- Prefer native-driven animations: Reanimated worklets, or RN `Animated` with
+  `useNativeDriver: true`. JS-driven animations on low-end Android = jank.
+- Avoid layout thrashing — don't `measure()` and `setState()` in the same
+  frame. Move dynamic measurements to `onLayout` or worklets.
+- Gesture handling goes through `react-native-gesture-handler` (runs on UI
+  thread), never raw `PanResponder`.
+
+## Re-renders (low-end Android)
+
+- Profile against a low-RAM Android device (≤ 2GB) — what's smooth on iPhone
+  Pro will stutter on a Pixel 3a. Enable Perf Monitor (`⌘D` → Perf Monitor)
+  and aim for 60 FPS JS / 60 FPS UI.
+- Memoize `renderItem` and any callback props that go into memoized children.
+  Inline arrow functions = new reference every render = forced child re-render.
+- Avoid unstable references in props — `style={{...}}`, `data={[...]}`, and
+  inline objects break shallow equality.
+
+```tsx
+// ❌ BAD — new array & new fn every parent render
+<FlatList data={[...items]} renderItem={(x) => <Row item={x.item} />} />
+
+// ✅ GOOD — stable references
+const renderItem = useCallback(({ item }) => <Row item={item} />, []);
+<FlatList data={items} renderItem={renderItem} keyExtractor={keyExtractor} />
+```
+
+## Bundle & startup
+
+- Optimize startup time — measure `TTI` (time to interactive) on a cold start.
+  Defer non-critical imports (`require()` lazily inside handlers).
+- Lazy-load heavy screens via Expo Router's file-based code-splitting; don't
+  eager-import giant deps (charting, video, ML kits) in `_layout.tsx`.
+- Compress images aggressively. Use WebP, ship `@1x` / `@2x` / `@3x` only as
+  needed, prefer `expo-image` (caches + native decode).
+- Audit JS bundle size — `npx expo export` then inspect `_expo/static/js/*.hbc`.
+  Drop the largest 3 deps you don't need.
+- Profile under Hermes (it's the default). Use Hermes' sampling profiler when
+  a screen feels slow.

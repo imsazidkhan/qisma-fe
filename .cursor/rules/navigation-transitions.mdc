@@ -1,0 +1,28 @@
+---
+description: Smooth screen transitions for Expo Router Stacks
+globs: ["src/app/**/_layout.tsx"]
+alwaysApply: false
+---
+
+# Navigation transitions
+
+- Every **`Stack`** in `src/app/**/_layout.tsx` must set **`screenOptions.animation`** explicitly (`slide_from_right` by default, or per-screen overrides). Never leave the root navigator without an explicit animation so nested pushes feel consistent project-wide.
+- **Default choice in this repo:** use **`slide_from_right`** for root and nested stacks so screens stay fully opaque during transitions. **`fade`** can read as a persistent dimmed veil on some Android / Fabric builds; reserve **`fade`** only for intentional cross-fades (override per-screen).
+- Set **`contentStyle`** to the themed background alongside animation so fades do not flash a wrong backdrop.
+- If a screen truly must appear without motion (e.g. splash), override that screen via `<Stack.Screen name="..." options={{ animation: 'none' }} />` locally — do not remove animation from the whole stack by default.
+
+```tsx
+const colors = useThemeColors();
+
+return (
+  <Stack
+    screenOptions={{
+      headerShown: false,
+      contentStyle: { backgroundColor: colors.background },
+      animation: 'slide_from_right',
+    }}
+  />
+);
+```
+
+When adding nested layouts, match sibling stacks so auth, onboarding, and home transitions feel cohesive.

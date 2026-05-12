@@ -1,0 +1,53 @@
+---
+description: React component authoring standards
+globs: **/*.tsx
+alwaysApply: false
+---
+
+# Components
+
+Keep screens declarative and thin. Extract logic into hooks; extract UI into primitives.
+
+## Size & responsibility
+
+- Components stay under ~150 lines. Split when they cross.
+- One responsibility per component. If you say "and" describing it, split.
+- Never place business logic directly in JSX. Compute, then render.
+- Use early returns to reduce nesting.
+
+```tsx
+// ❌ BAD — logic in JSX, deep nesting
+return (
+  <View>
+    {phone.length === 10 && !isOnline ? <OfflineBanner /> : (
+      isPending ? <Spinner /> : <Button onPress={() => sendOtp({ ... })} />
+    )}
+  </View>
+);
+
+// ✅ GOOD — derive once, render flat
+const showOffline = isPhoneValid && !isOnline;
+const handleSubmit = () => sendOtp({ phoneE164: normalizeToE164(phone) });
+
+if (isPending) return <Spinner />;
+return (
+  <View>
+    {showOffline ? <OfflineBanner /> : <Button onPress={handleSubmit} />}
+  </View>
+);
+```
+
+## Composition
+
+- Prefer composition over prop explosion. If a component has > ~6 props, split it
+  or accept `children`.
+- Build reusable UI primitives early — `Button`, `Input`, `Card`. Screens compose
+  primitives, primitives never compose screens.
+- Extract reusable logic into custom hooks (`use*`).
+
+## Hooks inside components
+
+- Hooks at the top of the function only. No conditional hooks.
+- Stable keys in lists — never `index` for dynamic data.
+- Avoid inline functions inside large lists — hoist or memoize.
+- Avoid side effects during rendering.

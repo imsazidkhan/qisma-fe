@@ -1,0 +1,46 @@
+---
+description: Rendering and runtime performance for React Native screens & components
+globs: **/*.tsx
+alwaysApply: false
+---
+
+# Performance
+
+Avoid premature optimization. But when a screen feels slow, do these in order.
+
+## Re-renders
+
+- Avoid unnecessary re-renders. Subscribe Zustand stores with selectors:
+  `useStore(s => s.field)`, not `useStore()`.
+- Memoize expensive derived values with `useMemo`. Memoize callbacks passed to
+  memoized children with `useCallback`.
+- Use `React.memo` on pure presentational components in hot paths only.
+- The React Compiler (`reactCompiler: true`) handles most cases — measure before
+  hand-memoizing.
+
+```tsx
+// ❌ BAD — selector returns new object every render, every store update re-renders
+const { phone, isPending } = useOtpFlowStore();
+
+// ✅ GOOD — narrow subscriptions
+const phone = useOtpFlowStore(s => s.phone);
+const isPending = useOtpFlowStore(s => s.isPending);
+```
+
+## Lists
+
+- Use stable keys; never `index` for dynamic data.
+- Prefer `FlashList` for large datasets (> ~50 items or async-loaded feeds).
+- For `FlatList`: set `keyExtractor`, `getItemLayout` (when fixed height),
+  `removeClippedSubviews`, `windowSize`, `initialNumToRender`.
+- Avoid inline arrow functions inside `renderItem` for large lists — hoist them.
+
+## Inputs & gestures
+
+- Debounce expensive user actions (search, autosave) — typically 250–400ms.
+- Throttle high-frequency events (scroll, drag) — typically 16ms (single frame).
+
+## Heavy work
+
+- Move heavy work off the JS thread (Reanimated worklets, native modules).
+- Defer non-critical work with `InteractionManager.runAfterInteractions`.
