@@ -13,7 +13,6 @@ export type AddGroupMemberModalProps = {
   onClose: () => void;
   onSubmit: (body: AddGroupMemberBody) => Promise<void>;
   isPending: boolean;
-  initialUserId?: string;
 };
 
 export function AddGroupMemberModal({
@@ -22,7 +21,6 @@ export function AddGroupMemberModal({
   onClose,
   onSubmit,
   isPending,
-  initialUserId,
 }: AddGroupMemberModalProps): ReactElement {
   const variant: AddGroupMembersVariant = 'modal';
 
@@ -40,7 +38,6 @@ export function AddGroupMemberModal({
         onDismiss={onClose}
         onSubmit={onSubmit}
         isPending={isPending}
-        initialUserId={initialUserId}
       />
     </Modal>
   );

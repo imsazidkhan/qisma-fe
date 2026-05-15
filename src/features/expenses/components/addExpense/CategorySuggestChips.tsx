@@ -7,13 +7,7 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { radius, space, typography, useThemeColors } from '@/theme';
 
-export type ExpenseCategorySlug =
-  | 'food'
-  | 'transport'
-  | 'shopping'
-  | 'home'
-  | 'bills'
-  | 'other';
+export type ExpenseCategorySlug = 'food' | 'transport' | 'shopping' | 'home' | 'bills' | 'other';
 
 type SlugMeta = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -54,7 +48,10 @@ export function CategorySuggestChips({
   const palette = useThemeColors();
 
   return (
-    <Animated.View entering={FadeIn.duration(180)} style={{ alignSelf: 'stretch', gap: space.gapMd }}>
+    <Animated.View
+      entering={FadeIn.duration(180)}
+      style={{ alignSelf: 'stretch', gap: space.gapMd }}
+    >
       <Text
         style={{
           fontFamily: typography.fontFamily.mono.regular,

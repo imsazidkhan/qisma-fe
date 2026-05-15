@@ -1,7 +1,9 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, type ReactElement } from 'react';
 
+import { hrefGroupMembers } from '@/constants/routes';
 import { GroupAnalyticsScreen } from '@/features/groups/components/GroupAnalyticsScreen';
+import { isUuid } from '@/features/groups/utils/isUuid';
 
 function resolvedParam(value: string | string[] | undefined): string {
   if (typeof value === 'string') return value;
@@ -21,5 +23,16 @@ export default function HomeGroupAnalyticsRoute(): ReactElement {
     router.replace('/home');
   }, []);
 
-  return <GroupAnalyticsScreen groupId={groupId} onBack={onBack} />;
+  const openMembers = useCallback(() => {
+    if (!isUuid(groupId)) return;
+    router.push(hrefGroupMembers(groupId));
+  }, [groupId]);
+
+  return (
+    <GroupAnalyticsScreen
+      groupId={groupId}
+      onBack={onBack}
+      onOpenMembers={isUuid(groupId) ? openMembers : undefined}
+    />
+  );
 }

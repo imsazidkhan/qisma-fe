@@ -4,6 +4,8 @@ export const ROUTES = {
   HOME: '/home',
   HOME_GROUPS: '/home/groups',
   HOME_INVITES: '/home/invites',
+  /** Device contacts → `POST /v1/contacts/sync` — find people on Quisma. */
+  HOME_CONTACTS_SYNC: '/home/contacts-sync',
   HOME_ACTIVITY: '/home/activity',
   HOME_CREATE_GROUP: '/home/create-group',
   HOME_PROFILE: '/home/profile',
@@ -56,6 +58,21 @@ export function hrefGroupAddExpense(groupId: string): GroupAddExpenseHref {
   return { pathname: '/home/group/[groupId]/add-expense', params: { groupId } };
 }
 
+export type GroupExpenseCommentsHref = {
+  pathname: '/home/group/[groupId]/expense/[expenseId]/comments';
+  params: { groupId: string; expenseId: string };
+};
+
+export function hrefGroupExpenseComments(
+  groupId: string,
+  expenseId: string,
+): GroupExpenseCommentsHref {
+  return {
+    pathname: '/home/group/[groupId]/expense/[expenseId]/comments',
+    params: { groupId, expenseId },
+  };
+}
+
 export type GroupAddMembersHref = {
   pathname: '/home/group/[groupId]/add-members';
   params: { groupId: string };
@@ -63,6 +80,15 @@ export type GroupAddMembersHref = {
 
 export function hrefGroupAddMembers(groupId: string): GroupAddMembersHref {
   return { pathname: '/home/group/[groupId]/add-members', params: { groupId } };
+}
+
+export type GroupMembersHref = {
+  pathname: '/home/group/[groupId]/members';
+  params: { groupId: string };
+};
+
+export function hrefGroupMembers(groupId: string): GroupMembersHref {
+  return { pathname: '/home/group/[groupId]/members', params: { groupId } };
 }
 
 export type AppRoute = (typeof ROUTES)[keyof typeof ROUTES];

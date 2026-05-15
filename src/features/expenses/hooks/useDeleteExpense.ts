@@ -6,15 +6,17 @@ import { expensesQueryKeys } from '@/features/expenses/queryKeys';
 import type { DeleteExpenseResponse } from '@/features/expenses/types/expense.types';
 import { applyExpenseWriteToCaches } from '@/features/expenses/utils/applyExpenseWriteToCaches';
 
-export function useDeleteExpense(expenseId: string) {
+export function useDeleteExpense(groupId: string, expenseId: string) {
   const queryClient = useQueryClient();
   const { data: me } = useAuthMe();
+  const gid = groupId.trim();
+  const eid = expenseId.trim();
 
   return useMutation<DeleteExpenseResponse, Error, void>({
-    mutationFn: () => deleteExpense(expenseId),
+    mutationFn: () => deleteExpense(gid, eid),
     onSuccess: (data) => {
-      applyExpenseWriteToCaches(queryClient, data, me?.id);
-      queryClient.removeQueries({ queryKey: expensesQueryKeys.detail(expenseId) });
+      applyExpenseWriteToCaches(queryClient, data, me?.id, { routeGroupId: gid });
+      queryClient.removeQueries({ queryKey: expensesQueryKeys.detail(gid, eid) });
     },
   });
 }

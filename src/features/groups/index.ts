@@ -20,6 +20,7 @@ export {
   getGroupById,
   getGroupInvitePreview,
   getGroupMemberProfile,
+  getMyGroupsHome,
   getMyGroupsList,
   groupSchema,
   type CreateGroupPayload,
@@ -48,12 +49,11 @@ export {
   fetchGroupAnalyticsTopSpenders,
 } from './api/groupAnalyticsApi';
 export {
-  searchUsersDirectory,
-  USER_SEARCH_QUERY_MAX,
-  USER_SEARCH_QUERY_MIN,
-  type UserSearchHit,
-} from './api/usersSearchApi';
-export { GROUP_TYPE_EMOJI, GROUP_TYPE_ORDER, type GroupTypeId } from './constants/groupTypes';
+  GROUP_TYPE_EMOJI,
+  GROUP_TYPE_GLYPH,
+  GROUP_TYPE_ORDER,
+  type GroupTypeId,
+} from './constants/groupTypes';
 export {
   useAcceptGroupInvite,
   useAddGroupMember,
@@ -69,11 +69,14 @@ export {
 export { useGroupDetail, useGroupMemberProfile, useGroupRouteDetail } from './hooks/useGroupDetail';
 export { useGroupActivity } from './hooks/useGroupActivity';
 export { useGroupAnalyticsBundle } from './hooks/useGroupAnalyticsBundle';
+export { useGroupAnalyticsCategoryBreakdown } from './hooks/useGroupAnalyticsCategoryBreakdown';
 export type { GroupRouteDetailMode } from './hooks/useGroupDetail';
+export { useGroupsHome } from './hooks/useGroupsHome';
 export { useGroupsList } from './hooks/useGroupsList';
 export { useGroupBalancesSnapshot } from './hooks/useGroupBalancesSnapshot';
-export { groupsQueryKeys, usersQueryKeys } from './queryKeys';
+export { groupsQueryKeys } from './queryKeys';
 export type { Group } from './types/group.types';
+export type { GroupsHomeData, GroupsHomeTabQuery } from './types/groupHome.types';
 export type { GroupListItem } from './types/groupsList.types';
 export type {
   GroupMemberRosterEntry,

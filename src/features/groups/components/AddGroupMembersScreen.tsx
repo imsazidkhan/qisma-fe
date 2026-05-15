@@ -10,16 +10,14 @@ import { useAddGroupMember } from '@/features/groups/hooks/useGroupMembers';
 export type AddGroupMembersScreenProps = {
   groupId: string;
   onBack: () => void;
-  initialUserId?: string;
 };
 
 /**
- * Full-screen add members flow: header, subtitle, mode tabs, directory search, sections, and rows.
+ * Full-screen add members flow: suggested phone contacts from the device and manual phone invite.
  */
 export function AddGroupMembersScreen({
   groupId,
   onBack,
-  initialUserId,
 }: AddGroupMembersScreenProps): ReactElement {
   const variant: AddGroupMembersVariant = 'screen';
   const addMutation = useAddGroupMember(groupId);
@@ -46,7 +44,6 @@ export function AddGroupMembersScreen({
       onDismiss={onBack}
       onSubmit={onSubmit}
       isPending={addMutation.isPending}
-      initialUserId={initialUserId}
     />
   );
 }

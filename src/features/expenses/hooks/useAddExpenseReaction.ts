@@ -7,13 +7,15 @@ import type {
   ExpenseReactionEntry,
 } from '@/features/expenses/types/expenseReaction.types';
 
-export function useAddExpenseReaction(expenseId: string) {
+export function useAddExpenseReaction(groupId: string, expenseId: string) {
   const queryClient = useQueryClient();
+  const gid = groupId.trim();
+  const eid = expenseId.trim();
 
   return useMutation<ExpenseReactionEntry, Error, AddExpenseReactionRequestBody>({
-    mutationFn: (reqBody) => createExpenseReaction(expenseId, reqBody),
+    mutationFn: (body) => createExpenseReaction(gid, eid, body),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: expensesQueryKeys.detail(expenseId) });
+      void queryClient.invalidateQueries({ queryKey: expensesQueryKeys.detail(gid, eid) });
     },
   });
 }

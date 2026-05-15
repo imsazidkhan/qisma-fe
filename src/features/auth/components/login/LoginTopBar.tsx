@@ -10,11 +10,11 @@ export function LoginTopBar({ dotState }: { dotState: StatusDotState }) {
 
   return (
     <View style={styles.topBar}>
-      <View style={styles.brandRow}>
-        <StatusDot state={dotState} />
+      <View style={[styles.brandRow, { opacity: 0.72 }]}>
+        <StatusDot state={dotState} size={4} />
         <Text style={[styles.brandMark, { color: palette.textMuted }]}>QISMA · v0.1</Text>
       </View>
-      <ThemeToggle />
+      <ThemeToggle variant="auth" />
     </View>
   );
 }

@@ -1,5 +1,5 @@
 import type { ColorValue } from 'react-native';
-import Svg, { Line, Path } from 'react-native-svg';
+import Svg, { Circle, Line, Path } from 'react-native-svg';
 
 type GlyphProps = {
   color: ColorValue;
@@ -57,24 +57,41 @@ export function QismaUserGlyphIcon({ color, size = 24, strokeWidth = 1.5 }: Glyp
   );
 }
 
-/** Groups tab — overlapping frames (list / cohorts). */
+/** Groups tab — hub + satellites (cohort / connected set). */
 export function QismaGroupsGlyphIcon({ color, size = 24, strokeWidth = 1.5 }: GlyphProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M7 4.5h10a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2Z"
+      <Line
+        x1={12}
+        y1={10.75}
+        x2={12}
+        y2={7.15}
         stroke={color}
         strokeWidth={strokeWidth}
         strokeLinecap="round"
-        strokeLinejoin="round"
       />
-      <Path
-        d="M4.5 15h15a1.5 1.5 0 0 1 1.5 1.5V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1.5A1.5 1.5 0 0 1 4.5 15Z"
+      <Line
+        x1={10.13}
+        y1={14.25}
+        x2={7.54}
+        y2={15.97}
         stroke={color}
         strokeWidth={strokeWidth}
         strokeLinecap="round"
-        strokeLinejoin="round"
       />
+      <Line
+        x1={13.87}
+        y1={14.25}
+        x2={16.46}
+        y2={15.97}
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+      />
+      <Circle cx={12} cy={13} r={2.25} stroke={color} strokeWidth={strokeWidth} />
+      <Circle cx={12} cy={5.25} r={1.85} stroke={color} strokeWidth={strokeWidth} />
+      <Circle cx={6} cy={17} r={1.85} stroke={color} strokeWidth={strokeWidth} />
+      <Circle cx={18} cy={17} r={1.85} stroke={color} strokeWidth={strokeWidth} />
     </Svg>
   );
 }
@@ -112,6 +129,22 @@ export function QismaActivityGlyphIcon({ color, size = 24, strokeWidth = 1.5 }: 
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </Svg>
+  );
+}
+
+/** Insights — ascendant bars + baseline (analytics read at tab size). */
+export function QismaInsightsGlyphIcon({ color, size = 24, strokeWidth = 1.5 }: GlyphProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M6.5 17V11M12 17V7M17.5 17v-5"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M4 18.25h16" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
     </Svg>
   );
 }

@@ -1,8 +1,8 @@
-import { type ComponentRef, forwardRef, useCallback } from 'react';
+import { type ComponentRef, forwardRef, useCallback, useMemo } from 'react';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { Input, type InputProps } from '@/components/ui';
-import { space, typography, useThemeColors } from '@/theme';
+import { radius, space, typography, useThemeColors } from '@/theme';
 import { stripPhoneInput } from '@/utils';
 
 export type PhoneInputProps = Omit<
@@ -14,6 +14,7 @@ export type PhoneInputProps = Omit<
   | 'rightAdornment'
   | 'inputMode'
   | 'label'
+  | 'fieldBorderRadius'
 > & {
   /** Field label. Defaults to `Mobile number`. */
   label?: string;
@@ -29,8 +30,35 @@ export type PhoneInputProps = Omit<
   showDigitCounter?: boolean;
   /** Wrapped field container (border radius, padding context). */
   containerStyle?: StyleProp<ViewStyle>;
-  /** Optional flag shown before the dial code (e.g. regional UX). */
-  countryFlagEmoji?: string;
+  /**
+   * Optional flag before the dial code. Omit for default 🇮🇳 when `countryCode` is `+91`.
+   * Pass `null` to hide the flag.
+   */
+  countryFlagEmoji?: string | null;
+  /** Softer filled surface + premium shell (login / onboarding). */
+  heroSurface?: boolean;
+  /** Insert a space after the first five digits (10-digit IN display). */
+  formatDigitGroups?: boolean;
+  /**
+   * Outlined dial-code chip + divider (Nothing-style) without the full {@link heroSurface}
+   * treatment. For premium forms inside an outer shell (e.g. group invites).
+   */
+  prefixChip?: boolean;
+  /** Tabular mono digits — calmer hierarchy next to suggested contacts. */
+  monoDigits?: boolean;
+};
+
+/**
+ * Same chrome as the login phone step (`LoginFormCard`). Spread into `PhoneInput` for consistent
+ * hero field, digit counter, and +91 grouping elsewhere (e.g. group invites).
+ */
+export const phoneInputLoginPreset: Pick<
+  PhoneInputProps,
+  'showDigitCounter' | 'heroSurface' | 'formatDigitGroups'
+> = {
+  showDigitCounter: true,
+  heroSurface: true,
+  formatDigitGroups: true,
 };
 
 /**
@@ -54,17 +82,27 @@ export const PhoneInput = forwardRef<ComponentRef<typeof Input>, PhoneInputProps
       onChangeText,
       containerStyle,
       fieldVariant = 'outline',
+      heroSurface = false,
+      formatDigitGroups = false,
+      prefixChip = false,
+      monoDigits = false,
+      style: inputTextStyle,
       ...rest
     },
     ref,
   ) {
     const palette = useThemeColors();
+    const showPrefixChip = prefixChip && !heroSurface;
+
+    const resolvedFlag = useMemo(() => {
+      if (countryFlagEmoji === null) return null;
+      if (countryFlagEmoji !== undefined) return countryFlagEmoji;
+      return countryCode === '+91' ? '🇮🇳' : null;
+    }, [countryCode, countryFlagEmoji]);
 
     const handleChange = useCallback(
       (next: string) => {
         let digitsOnly = stripPhoneInput(next);
-        // Paste edge case: full Indian MSISDN `919876543210` — taking the first
-        // 10 digits would wrongly yield `9198765432`. Strip trunk `91` once.
         if (countryCode === '+91' && digitsOnly.length > maxDigits && digitsOnly.startsWith('91')) {
           digitsOnly = digitsOnly.slice(2);
         }
@@ -76,39 +114,99 @@ export const PhoneInput = forwardRef<ComponentRef<typeof Input>, PhoneInputProps
 
     const counterValue = String(value?.length ?? 0).padStart(2, '0');
     const maxValue = String(maxDigits).padStart(2, '0');
-    const counterColor = (value?.length ?? 0) === maxDigits ? palette.accent : palette.textMuted;
+    const counterFull = (value?.length ?? 0) === maxDigits;
+
+    const displayValue = useMemo(() => {
+      const raw = value ?? '';
+      if (!formatDigitGroups || raw.length <= 5) return raw;
+      return `${raw.slice(0, 5)} ${raw.slice(5)}`;
+    }, [formatDigitGroups, value]);
+
+    const chipShell = {
+      backgroundColor: palette.inputBackground,
+      borderColor: palette.inputBackground,
+    };
+    const inkHairline = { backgroundColor: palette.textPrimary, opacity: 0.1 };
+
+    const leftAdornment = heroSurface ? (
+      <View style={styles.prefixRowHero}>
+        <View style={[styles.prefixChip, chipShell]}>
+          {resolvedFlag ? (
+            <Text style={styles.flag} accessible={false}>
+              {resolvedFlag}
+            </Text>
+          ) : null}
+          <Text style={[styles.prefixCodeHero, { color: palette.textPrimary }]}>{countryCode}</Text>
+        </View>
+        <View style={[styles.dividerHero, inkHairline]} />
+      </View>
+    ) : showPrefixChip ? (
+      <View style={styles.prefixRowChip}>
+        <View style={[styles.prefixChipCompact, chipShell]}>
+          {resolvedFlag ? (
+            <Text style={styles.flagCompact} accessible={false}>
+              {resolvedFlag}
+            </Text>
+          ) : null}
+          <Text style={[styles.prefixCodeChip, { color: palette.textPrimary }]}>{countryCode}</Text>
+        </View>
+        <View style={[styles.dividerChip, inkHairline]} />
+      </View>
+    ) : (
+      <View style={styles.prefixWrap}>
+        {resolvedFlag ? (
+          <Text style={styles.flag} accessible={false}>
+            {resolvedFlag}
+          </Text>
+        ) : null}
+        <Text style={[styles.prefix, { color: palette.textPrimary, opacity: 0.52 }]}>{countryCode}</Text>
+        <View style={[styles.divider, inkHairline]} />
+      </View>
+    );
 
     return (
       <Input
         ref={ref}
         label={label}
         fieldVariant={fieldVariant}
-        value={value}
+        surfaceTone={heroSurface ? 'filled' : 'transparent'}
+        focusBorderMode={heroSurface ? 'neutral' : 'accent'}
+        focusElevation={false}
+        fieldBorderRadius={heroSurface ? radius['2xl'] : radius.input}
+        value={displayValue}
         onChangeText={handleChange}
         keyboardType="phone-pad"
         inputMode="tel"
         autoComplete="tel"
         textContentType="telephoneNumber"
-        maxLength={maxDigits}
+        maxLength={formatDigitGroups ? undefined : maxDigits}
         containerStyle={containerStyle}
-        leftAdornment={
-          <View style={styles.prefixWrap}>
-            {countryFlagEmoji ? (
-              <Text style={styles.flag} accessible={false}>
-                {countryFlagEmoji}
-              </Text>
-            ) : null}
-            <Text style={[styles.prefix, { color: palette.textSecondary }]}>{countryCode}</Text>
-            <View style={[styles.divider, { backgroundColor: palette.borderSubtle }]} />
-          </View>
-        }
+        leftAdornment={leftAdornment}
         rightAdornment={
           showDigitCounter ? (
-            <Text style={[styles.counter, { color: counterColor }]}>
+            <Text
+              style={[
+                styles.counter,
+                counterFull
+                  ? { color: palette.accent }
+                  : { color: palette.textPrimary, opacity: 0.42 },
+              ]}
+            >
               {counterValue}/{maxValue}
             </Text>
           ) : undefined
         }
+        style={[
+          heroSurface || monoDigits
+            ? {
+                fontFamily: typography.fontFamily.mono.medium,
+                fontSize: typography.fontSize.lg,
+                letterSpacing: typography.letterSpacing.wide,
+                fontVariant: ['tabular-nums'],
+              }
+            : null,
+          inputTextStyle,
+        ]}
         {...rest}
       />
     );
@@ -116,6 +214,61 @@ export const PhoneInput = forwardRef<ComponentRef<typeof Input>, PhoneInputProps
 );
 
 const styles = StyleSheet.create({
+  prefixRowHero: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: space.gapMd,
+  },
+  prefixChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.gapSm,
+    paddingVertical: space.gapXs,
+    paddingHorizontal: space.gapMd,
+    borderRadius: radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  prefixCodeHero: {
+    fontFamily: typography.fontFamily.mono.medium,
+    fontSize: typography.fontSize.sm,
+    letterSpacing: typography.letterSpacing.wide,
+    fontVariant: ['tabular-nums'],
+  },
+  dividerHero: {
+    width: StyleSheet.hairlineWidth,
+    alignSelf: 'stretch',
+    marginVertical: space.gapXs,
+    minHeight: 26,
+  },
+  prefixRowChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.gapSm,
+  },
+  prefixChipCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.gapXs,
+    paddingVertical: space.gapXs,
+    paddingHorizontal: space.gapSm,
+    borderRadius: radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  flagCompact: {
+    fontSize: 18,
+    lineHeight: 22,
+  },
+  prefixCodeChip: {
+    fontFamily: typography.fontFamily.mono.medium,
+    fontSize: typography.fontSize.sm,
+    letterSpacing: typography.letterSpacing.wide,
+    fontVariant: ['tabular-nums'],
+  },
+  dividerChip: {
+    width: StyleSheet.hairlineWidth,
+    height: 22,
+    alignSelf: 'center',
+  },
   prefixWrap: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -130,8 +283,8 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.base,
   },
   divider: {
-    width: 1,
-    height: 18,
+    width: StyleSheet.hairlineWidth,
+    height: 20,
   },
   counter: {
     fontFamily: typography.fontFamily.mono.regular,

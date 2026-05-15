@@ -1,19 +1,24 @@
 import * as Haptics from 'expo-haptics';
-import { type ReactNode } from 'react';
+import { type ReactNode, useEffect } from 'react';
 import {
-    ActivityIndicator,
-    Pressable,
-    StyleSheet,
-    Text,
-    View,
-    type StyleProp,
-    type ViewStyle,
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type StyleProp,
+  type ViewStyle,
 } from 'react-native';
 import Animated, {
-    useAnimatedStyle,
-    useReducedMotion,
-    useSharedValue,
-    withSpring,
+  Easing,
+  cancelAnimation,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 
 import { radius, space, typography, useThemeColors } from '@/theme';
@@ -89,6 +94,8 @@ export type ButtonProps = {
   ctaProminence?: 'standard' | 'expressive';
   /** Optional icon or node (decorative). Hidden from screen readers; use `accessibilityLabel`. */
   leading?: ReactNode;
+  /** Subtle idle “breath” on interactable primary CTAs (premium onboarding). */
+  ambientBreathing?: boolean;
   accessibilityLabel?: string;
   accessibilityHint?: string;
   style?: StyleProp<ViewStyle>;
@@ -113,6 +120,7 @@ export function Button({
   accessibilityHint,
   style,
   testID,
+  ambientBreathing = false,
 }: ButtonProps) {
   const palette = useThemeColors();
   const isPrimary = variant === 'primary';
@@ -124,8 +132,26 @@ export function Button({
 
   const reduceMotion = useReducedMotion();
   const pressScale = useSharedValue(1);
+  const breath = useSharedValue(1);
+
+  useEffect(() => {
+    cancelAnimation(breath);
+    if (reduceMotion || !ambientBreathing || !isInteractable) {
+      breath.value = 1;
+      return;
+    }
+    breath.value = withRepeat(
+      withSequence(
+        withTiming(0.987, { duration: 2600, easing: Easing.inOut(Easing.sin) }),
+        withTiming(1, { duration: 2600, easing: Easing.inOut(Easing.sin) }),
+      ),
+      -1,
+      false,
+    );
+  }, [ambientBreathing, breath, isInteractable, reduceMotion]);
+
   const pressScaleStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: pressScale.value }],
+    transform: [{ scale: pressScale.value * breath.value }],
   }));
 
   const handlePressIn = (): void => {

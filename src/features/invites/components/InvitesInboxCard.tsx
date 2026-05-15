@@ -15,6 +15,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import Animated, {
   interpolate,
   useAnimatedStyle,
@@ -251,6 +252,31 @@ export function InvitesInboxCard({ item, offline }: InvitesInboxCardProps): Reac
     });
   }, [cardScale]);
 
+  const renderSwipeDecline = useCallback(() => {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t('invites.swipeDeclineA11y')}
+        onPress={onDecline}
+        style={({ pressed }) => ({
+          width: 88,
+          flex: 1,
+          backgroundColor: palette.errorSubtle,
+          justifyContent: 'center',
+          alignItems: 'center',
+          paddingHorizontal: space.gapSm,
+          opacity: pressed ? 0.88 : 1,
+          borderTopRightRadius: radius.inviteCard,
+          borderBottomRightRadius: radius.inviteCard,
+        })}
+      >
+        <Text style={[textStyles.labelSmall, { color: palette.errorText, textAlign: 'center' }]}>
+          {t('groups.membersScreen.declineInvite')}
+        </Text>
+      </Pressable>
+    );
+  }, [onDecline, palette.errorSubtle, palette.errorText, t]);
+
   let reactionA11y: string | undefined;
   if (reaction === 'accept') reactionA11y = t('invites.reactionOverlayAcceptA11y');
   else if (reaction === 'decline') reactionA11y = t('invites.reactionOverlayDeclineA11y');
@@ -275,139 +301,147 @@ export function InvitesInboxCard({ item, offline }: InvitesInboxCardProps): Reac
           ) : null}
         </View>
       </Modal>
-      <Animated.View style={rowAnimStyle}>
-        <View style={[{ borderRadius: radius.inviteCard }, platformShadow('sm')]}>
-          <View
-            style={{
-              borderRadius: radius.inviteCard,
-              overflow: 'hidden',
-              borderWidth: StyleSheet.hairlineWidth,
-              borderColor: palette.borderSubtle,
-            }}
-          >
-            {Platform.OS !== 'web' ? (
-              <BlurView
-                intensity={mode === 'dark' ? 28 : 22}
-                tint={mode}
-                style={StyleSheet.absoluteFill}
-                experimentalBlurMethod={Platform.OS === 'android' ? 'dimezisBlurView' : undefined}
-              />
-            ) : null}
-            <View
-              style={[
-                StyleSheet.absoluteFill,
-                {
-                  backgroundColor: palette.surfaceFloating,
-                  opacity: Platform.OS === 'web' ? 0.96 : 0.82,
-                },
-              ]}
-            />
+      <Swipeable
+        enabled={Platform.OS !== 'web' && !offline && !busy}
+        overshootRight={false}
+        friction={2}
+        renderRightActions={renderSwipeDecline}
+        childrenContainerStyle={{ borderRadius: radius.inviteCard }}
+      >
+        <Animated.View style={rowAnimStyle}>
+          <View style={[{ borderRadius: radius.inviteCard }, platformShadow('sm')]}>
             <View
               style={{
-                paddingHorizontal: space.gapLg,
-                paddingVertical: space.sectionGapSm,
-                gap: space.sectionGapSm,
+                borderRadius: radius.inviteCard,
+                overflow: 'hidden',
+                borderWidth: StyleSheet.hairlineWidth,
+                borderColor: palette.borderFrost,
               }}
             >
-              <Animated.View style={cardPressStyle}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t('invites.rowOpenA11y', { name: title })}
-                  accessibilityHint={t('invites.rowOpenHint')}
-                  onPress={openPreview}
-                  onPressIn={onPreviewPressIn}
-                  onPressOut={onPreviewPressOut}
-                  disabled={busy}
-                  style={({ pressed }) => ({
-                    opacity: busy ? 0.55 : pressed ? 0.94 : 1,
-                  })}
-                >
-                  <View
-                    style={{ flexDirection: 'row', alignItems: 'flex-start', gap: space.gapMd }}
+              {Platform.OS !== 'web' ? (
+                <BlurView
+                  intensity={mode === 'dark' ? 28 : 22}
+                  tint={mode}
+                  style={StyleSheet.absoluteFill}
+                  experimentalBlurMethod={Platform.OS === 'android' ? 'dimezisBlurView' : undefined}
+                />
+              ) : null}
+              <View
+                style={[
+                  StyleSheet.absoluteFill,
+                  {
+                    backgroundColor: palette.surfaceFloating,
+                    opacity: Platform.OS === 'web' ? 0.96 : 0.82,
+                  },
+                ]}
+              />
+              <View
+                style={{
+                  paddingHorizontal: space.gapLg,
+                  paddingVertical: space.sectionGapSm,
+                  gap: space.sectionGapSm,
+                }}
+              >
+                <Animated.View style={cardPressStyle}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t('invites.rowOpenA11y', { name: title })}
+                    accessibilityHint={t('invites.rowOpenHint')}
+                    onPress={openPreview}
+                    onPressIn={onPreviewPressIn}
+                    onPressOut={onPreviewPressOut}
+                    disabled={busy}
+                    style={({ pressed }) => ({
+                      opacity: busy ? 0.55 : pressed ? 0.94 : 1,
+                    })}
                   >
                     <View
-                      style={{
-                        width: AVATAR_SIZE,
-                        height: AVATAR_SIZE,
-                        borderRadius: radius.full,
-                        borderWidth: StyleSheet.hairlineWidth,
-                        borderColor: palette.borderSubtle,
-                        backgroundColor: palette.surfaceOverlay,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        overflow: 'hidden',
-                      }}
+                      style={{ flexDirection: 'row', alignItems: 'flex-start', gap: space.gapMd }}
                     >
-                      {item.avatarUrl ? (
-                        <Image
-                          source={{ uri: item.avatarUrl }}
-                          style={{ width: AVATAR_SIZE, height: AVATAR_SIZE }}
-                          contentFit="cover"
-                          accessibilityIgnoresInvertColors
-                        />
-                      ) : (
-                        <Text
-                          style={{ fontSize: 22 }}
-                          accessibilityElementsHidden
-                          importantForAccessibility="no"
-                        >
-                          {emoji}
-                        </Text>
-                      )}
-                    </View>
-                    <View style={{ flex: 1, gap: space.gapSm }}>
-                      <Text
-                        style={[textStyles.h3, { color: palette.textPrimary }]}
-                        numberOfLines={2}
+                      <View
+                        style={{
+                          width: AVATAR_SIZE,
+                          height: AVATAR_SIZE,
+                          borderRadius: radius.full,
+                          borderWidth: StyleSheet.hairlineWidth,
+                          borderColor: palette.borderSubtle,
+                          backgroundColor: palette.surfaceOverlay,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          overflow: 'hidden',
+                        }}
                       >
-                        {title}
-                      </Text>
-                      <Text style={[textStyles.body, { color: palette.textSecondary }]}>
-                        {invitedByLabel}
-                      </Text>
-                      {detailLine ? (
+                        {item.avatarUrl ? (
+                          <Image
+                            source={{ uri: item.avatarUrl }}
+                            style={{ width: AVATAR_SIZE, height: AVATAR_SIZE }}
+                            contentFit="cover"
+                            accessibilityIgnoresInvertColors
+                          />
+                        ) : (
+                          <Text
+                            style={{ fontSize: 22 }}
+                            accessibilityElementsHidden
+                            importantForAccessibility="no"
+                          >
+                            {emoji}
+                          </Text>
+                        )}
+                      </View>
+                      <View style={{ flex: 1, gap: space.gapSm }}>
                         <Text
-                          style={[textStyles.caption, { color: palette.textMuted }]}
-                          accessibilityRole="text"
+                          style={[textStyles.h3, { color: palette.textPrimary }]}
+                          numberOfLines={2}
                         >
-                          {detailLine}
+                          {title}
                         </Text>
-                      ) : null}
+                        <Text style={[textStyles.body, { color: palette.textSecondary }]}>
+                          {invitedByLabel}
+                        </Text>
+                        {detailLine ? (
+                          <Text
+                            style={[textStyles.caption, { color: palette.textMuted }]}
+                            accessibilityRole="text"
+                          >
+                            {detailLine}
+                          </Text>
+                        ) : null}
+                      </View>
                     </View>
-                  </View>
-                </Pressable>
-              </Animated.View>
+                  </Pressable>
+                </Animated.View>
 
-              <View style={{ flexDirection: 'row', gap: space.gapMd, paddingTop: space.gapXs }}>
-                <View style={{ flex: 1 }}>
-                  <Button
-                    label={t('groups.membersScreen.declineInvite')}
-                    variant="secondary"
-                    onPress={onDecline}
-                    disabled={offline || busy}
-                    loading={decline.isPending}
-                    trailing="none"
-                    labelCase="none"
-                    accessibilityLabel={t('groups.membersScreen.declineInviteA11y')}
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Button
-                    label={t('groups.membersScreen.acceptInvite')}
-                    variant="accent"
-                    onPress={onAccept}
-                    disabled={offline || busy}
-                    loading={accept.isPending}
-                    trailing="none"
-                    labelCase="none"
-                    accessibilityLabel={t('groups.membersScreen.acceptInviteA11y')}
-                  />
+                <View style={{ flexDirection: 'row', gap: space.gapMd, paddingTop: space.gapXs }}>
+                  <View style={{ flex: 1 }}>
+                    <Button
+                      label={t('groups.membersScreen.declineInvite')}
+                      variant="secondary"
+                      onPress={onDecline}
+                      disabled={offline || busy}
+                      loading={decline.isPending}
+                      trailing="none"
+                      labelCase="none"
+                      accessibilityLabel={t('groups.membersScreen.declineInviteA11y')}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Button
+                      label={t('groups.membersScreen.acceptInvite')}
+                      variant="accent"
+                      onPress={onAccept}
+                      disabled={offline || busy}
+                      loading={accept.isPending}
+                      trailing="none"
+                      labelCase="none"
+                      accessibilityLabel={t('groups.membersScreen.acceptInviteA11y')}
+                    />
+                  </View>
                 </View>
               </View>
             </View>
           </View>
-        </View>
-      </Animated.View>
+        </Animated.View>
+      </Swipeable>
     </>
   );
 }

@@ -46,6 +46,16 @@ export const shadows = {
     shadowRadius: 8,
     elevation: 4,
   },
+  /**
+   * Create-group floating CTA pill — y 12 · blur 40 · 16% black (dominant anchor).
+   */
+  createGroupCtaFloat: {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.16,
+    shadowRadius: 40,
+    elevation: 12,
+  },
   lg: {
     shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 8 },
@@ -77,6 +87,80 @@ export const shadows = {
     shadowOpacity: 0.11,
     shadowRadius: 28,
     elevation: 5,
+  },
+  /** Expense feed rows — Apple Wallet–style floating slab (both palettes via `shadow` token). */
+  expenseWalletCard: {
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.04,
+    shadowRadius: 24,
+    elevation: 3,
+  },
+  /**
+   * Groups hub list cards — barely-there lift; pairing relies on border + surface contrast.
+   */
+  groupsHubCard: {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.02,
+    shadowRadius: 12,
+    elevation: 1,
+  },
+  /** Ledger expense card — spec ambient (y 8 · blur 24 · ~4% #0F0F0F). */
+  expenseLedgerCard: {
+    shadowColor: '#0F0F0F',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.04,
+    shadowRadius: 24,
+    elevation: 3,
+  },
+  /** Hover / lifted ledger card (~6% opacity). */
+  expenseLedgerCardHover: {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.06,
+    shadowRadius: 28,
+    elevation: 4,
+  },
+  /** Hub ambient search — barely-there lift (spec: y 2 · blur 12 · ~2% ink). */
+  ambientSearch: {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.02,
+    shadowRadius: 12,
+    elevation: 1,
+  },
+  /** Hub ambient search — focused whisper (y 4 · blur 18 · ~3% ink). */
+  ambientSearchFocused: {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 18,
+    elevation: 2,
+  },
+  /** Category icon dock — subtle lift behind glyph. */
+  expenseCategoryDock: {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.03,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  /** Participant chips — ~4 dp blur, ~3% ink (Wallet / Linear density). */
+  expenseLedgerAvatarMicro: {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  /** Participant avatar rings — faint separation on bright slabs. */
+  expenseLedgerAvatar: {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 2,
   },
 } as const satisfies Record<string, ViewStyle>;
 

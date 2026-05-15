@@ -5,9 +5,11 @@ import { logger } from '@/services/logger';
 
 import { GROUP_TYPE_ORDER, type GroupTypeId } from '@/features/groups/constants/groupTypes';
 import type { Group } from '@/features/groups/types/group.types';
+import type { GroupsHomeData, GroupsHomeTabQuery } from '@/features/groups/types/groupHome.types';
 import type { GroupListItem } from '@/features/groups/types/groupsList.types';
 import type { MyGroupRowDto } from '@/features/groups/types/myGroups.types';
 import { groupToListItem } from '@/features/groups/utils/groupToListItem';
+import { myGroupHomeCardToListItem } from '@/features/groups/utils/myGroupHomeCardToListItem';
 import { myGroupRowToListItem } from '@/features/groups/utils/myGroupRowToListItem';
 import { isUuid } from '@/features/groups/utils/isUuid';
 
@@ -67,12 +69,18 @@ function parseGroupData(data: unknown): Group {
   return row.data as Group;
 }
 
+function coerceWireGroupTypeSlug(raw: unknown): GroupTypeId {
+  if (raw == null) return 'other';
+  const v = String(raw).trim().toLowerCase();
+  return (GROUP_TYPE_ORDER as readonly string[]).includes(v) ? (v as GroupTypeId) : 'other';
+}
+
 /** `GroupInvitePreviewDataDto` — pending invitee only (`GET …/invite-preview`). */
 const invitePreviewSchema = z
   .object({
     id: z.string().uuid(),
     name: z.string(),
-    type: groupTypeSchema,
+    type: z.union([z.string(), z.null()]).transform(coerceWireGroupTypeSlug),
     avatar: nullableHttpUrl,
     memberCount: z
       .union([z.number(), z.null()])
@@ -197,6 +205,88 @@ export function getMyGroupsList(signal?: AbortSignal): Promise<GroupListItem[]> 
       });
     }
     return out;
+  });
+}
+
+const balanceBucketSchema = z.enum(['owe', 'get_back', 'settled']);
+
+const myGroupHomeCardSchema = z
+  .object({
+    groupId: z.string().uuid(),
+    group: z
+      .object({
+        name: z.string(),
+        type: z.string(),
+        avatar: nullableHttpUrl,
+      })
+      .passthrough(),
+    memberCount: z.number().int().nonnegative().optional(),
+    expenseCount: z.number().int().nonnegative().optional(),
+    recentExpenseTitle: z.union([z.string(), z.null()]).optional(),
+    balanceNetMinor: z.union([z.string(), z.number()]),
+    dominantCurrency: z.string(),
+    balanceBucket: balanceBucketSchema,
+    pendingSettlementCount: z.number().int().nonnegative().optional(),
+    lastActivityAt: z.union([z.string(), z.null()]).optional(),
+    lastActivityType: z.union([z.string(), z.null()]).optional(),
+    lastActivityActorName: z.union([z.string(), z.null()]).optional(),
+    lastActivityPreview: z.union([z.string(), z.null()]).optional(),
+    balanceUpdatedAt: z.union([z.string(), z.null()]).optional(),
+    role: z.string().optional(),
+    joinedAt: z.string().optional(),
+    isCreator: z.boolean().optional(),
+  })
+  .passthrough();
+
+const groupsHomeDataSchema = z.object({
+  tab: z.enum(['all', 'owe', 'get_back', 'settled']),
+  items: z.array(z.unknown()),
+});
+
+/**
+ * `GET /v1/users/me/groups/home` — tabbed dashboard (`tab` query: all | owe | get_back | settled).
+ */
+export function getMyGroupsHome(
+  tab: GroupsHomeTabQuery = 'all',
+  signal?: AbortSignal,
+): Promise<GroupsHomeData> {
+  const params = new URLSearchParams();
+  if (tab !== 'all') {
+    params.set('tab', tab);
+  }
+  const qs = params.toString();
+  const path =
+    qs.length > 0 ? `${ENDPOINTS.users.meGroupsHome}?${qs}` : ENDPOINTS.users.meGroupsHome;
+
+  return apiFetch<unknown>(path, { method: 'GET', signal }).then((raw) => {
+    const envelope = groupsHomeDataSchema.safeParse(raw);
+    if (!envelope.success) {
+      throw new ApiError({
+        code: CLIENT_ERROR_CODES.PARSE_ERROR,
+        message: 'Invalid groups home response shape.',
+        status: 0,
+        details: envelope.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`),
+      });
+    }
+    const tab = envelope.data.tab;
+    const itemsRaw = envelope.data.items;
+    const out: GroupListItem[] = [];
+    let skippedInvalidRows = 0;
+    for (const el of itemsRaw) {
+      const one = myGroupHomeCardSchema.safeParse(el);
+      if (one.success) {
+        out.push(myGroupHomeCardToListItem(one.data));
+      } else {
+        skippedInvalidRows += 1;
+      }
+    }
+    if (skippedInvalidRows > 0) {
+      logger.breadcrumb('my_groups_home_parse_skipped_rows', {
+        endpoint: ENDPOINTS.users.meGroupsHome,
+        tags: { skippedInvalidRows },
+      });
+    }
+    return { tab, items: out };
   });
 }
 

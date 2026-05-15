@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 
+import { useAuthMe } from '@/features/auth/hooks/useAuthMe';
 import { fetchGroupBalancesSnapshot } from '@/features/groups/api/groupBalancesApi';
 import { groupsQueryKeys } from '@/features/groups/queryKeys';
 
@@ -15,10 +16,14 @@ export function useGroupBalancesSnapshot(
   options: UseGroupBalancesSnapshotOptions,
 ) {
   const { enabled } = options;
+  const { data: me } = useAuthMe();
+  const viewerUserId = me?.id;
 
   return useQuery({
-    queryKey: groupId ? groupsQueryKeys.balances(groupId) : ['groups', 'balances', '__disabled'],
-    queryFn: ({ signal }) => fetchGroupBalancesSnapshot(groupId!, signal),
+    queryKey: groupId
+      ? groupsQueryKeys.balances(groupId, viewerUserId)
+      : ['groups', 'balances', '__disabled'],
+    queryFn: ({ signal }) => fetchGroupBalancesSnapshot(groupId!, { signal, viewerUserId }),
     enabled: Boolean(groupId) && enabled,
     staleTime: 30_000,
   });

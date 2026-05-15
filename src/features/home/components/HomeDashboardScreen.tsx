@@ -1,20 +1,22 @@
 import { Button } from '@/components/ui';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { useCallback, useMemo, useState, type ReactElement } from 'react';
-import { useTranslation } from 'react-i18next';
-import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-
 import { hrefGroupDetail, ROUTES } from '@/constants/routes';
+import { STORAGE_KEYS } from '@/constants/storageKeys';
+import { useAuthMe } from '@/features/auth/hooks/useAuthMe';
 import type { GroupListItem } from '@/features/groups/types/groupsList.types';
 import { formatMinorAsCurrency } from '@/features/groups/utils/formatMinorAsCurrency';
 import { HomeDashboardGroupRow } from '@/features/home/components/HomeDashboardGroupRow';
+import { HomeDashboardHeader } from '@/features/home/components/HomeDashboardHeader';
 import { homeDashboardScreenStyles as styles } from '@/features/home/components/homeDashboardScreen.styles';
-import { useHomeDashboardHeaderStamp } from '@/features/home/hooks/useHomeDashboardHeaderStamp';
+import { useHomeDashboardHeaderController } from '@/features/home/hooks/useHomeDashboardHeaderController';
 import { aggregateGroupBalances } from '@/features/home/utils/aggregateGroupBalances';
-import { useGroupInvitesInbox } from '@/features/invites/hooks/useGroupInvitesInbox';
-import { space, textStyles, typography, useThemeColors } from '@/theme';
+import { PostOtpInvitesSheet } from '@/features/invites/components/PostOtpInvitesSheet';
+import { storage } from '@/services/storage';
+import { space, useThemeColors } from '@/theme';
+import { router } from 'expo-router';
+import { useCallback, useMemo, useReducer, useState, type ReactElement } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export type HomeDashboardScreenProps = {
   displayName: string | null;
@@ -67,10 +69,23 @@ export function HomeDashboardScreen({
 }: HomeDashboardScreenProps): ReactElement {
   const { t } = useTranslation();
   const palette = useThemeColors();
-  const headerStamp = useHomeDashboardHeaderStamp();
+  const { headerProps, inviteBadgeCount, refetchInvitesInbox } = useHomeDashboardHeaderController();
   const [pullRefreshing, setPullRefreshing] = useState(false);
-  const { data: inviteInbox, refetch: refetchInvitesInbox } = useGroupInvitesInbox();
-  const inviteBadgeCount = inviteInbox?.length ?? 0;
+  const { data: me } = useAuthMe();
+  const [invitePromptEpoch, bumpInvitePromptEpoch] = useReducer((x: number) => x + 1, 0);
+  const showPostSignInInvitesPrompt = useMemo(() => {
+    if (!me?.id) return false;
+    if (inviteBadgeCount <= 0) return false;
+    void invitePromptEpoch;
+    return storage.getString(STORAGE_KEYS.invitesPostSignInPromptDismissedUserId) !== me.id;
+  }, [inviteBadgeCount, invitePromptEpoch, me?.id]);
+
+  const dismissInvitePrompt = useCallback(() => {
+    if (me?.id) {
+      storage.set(STORAGE_KEYS.invitesPostSignInPromptDismissedUserId, me.id);
+    }
+    bumpInvitePromptEpoch();
+  }, [me?.id]);
 
   const totals = useMemo(() => aggregateGroupBalances(groups), [groups]);
 
@@ -132,17 +147,6 @@ export function HomeDashboardScreen({
     router.push(hrefGroupDetail(groupId));
   }, []);
 
-  const inboxAccessibilityLabel = useMemo(() => {
-    if (inviteBadgeCount <= 0) {
-      return t('homeDashboard.inboxA11y');
-    }
-    return `${t('homeDashboard.inboxA11y')}, ${t('homeDashboard.inboxBadge', { count: inviteBadgeCount })}`;
-  }, [inviteBadgeCount, t]);
-
-  const handleOpenInbox = useCallback(() => {
-    router.push(ROUTES.HOME_INVITES);
-  }, []);
-
   const handleNewGroupPress = useCallback(() => {
     router.push(ROUTES.HOME_CREATE_GROUP);
   }, []);
@@ -163,51 +167,12 @@ export function HomeDashboardScreen({
         contentContainerStyle={[
           styles.scrollContent,
           {
-            paddingHorizontal: space.screenPadding,
+            paddingHorizontal: space.screenPaddingLg,
             paddingBottom: scrollBottomPadding,
           },
         ]}
       >
-        <View style={styles.topBarRow}>
-          <View
-            style={styles.topBarMeta}
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-          >
-            <Text style={[styles.topBarMetaText, { color: palette.textMuted }]} numberOfLines={1}>
-              {headerStamp}
-            </Text>
-          </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={inboxAccessibilityLabel}
-            accessibilityHint={t('homeDashboard.inboxHint')}
-            onPress={handleOpenInbox}
-            hitSlop={8}
-            style={({ pressed }) => [styles.inboxHit, { opacity: pressed ? 0.72 : 1 }]}
-          >
-            <View style={styles.inboxIconWrap}>
-              <Ionicons name="mail-outline" size={26} color={palette.textPrimary} />
-              {inviteBadgeCount > 0 ? (
-                <View style={[styles.inboxBadge, { backgroundColor: palette.accent }]}>
-                  <Text
-                    style={[
-                      textStyles.labelSmall,
-                      {
-                        fontFamily: typography.fontFamily.mono.regular,
-                        color: palette.textOnAccent,
-                        fontVariant: ['tabular-nums'],
-                      },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {inviteBadgeCount > 999 ? '999+' : String(inviteBadgeCount)}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-          </Pressable>
-        </View>
+        <HomeDashboardHeader {...headerProps} />
         <Text style={[styles.greeting, { color: palette.textPrimary }]} accessibilityRole="header">
           {greeting}
         </Text>
@@ -353,6 +318,11 @@ export function HomeDashboardScreen({
           ) : null}
         </View>
       </ScrollView>
+      <PostOtpInvitesSheet
+        visible={showPostSignInInvitesPrompt}
+        count={inviteBadgeCount}
+        onDismiss={dismissInvitePrompt}
+      />
     </SafeAreaView>
   );
 }

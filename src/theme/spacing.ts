@@ -24,6 +24,9 @@ export const spacing = {
  * Named layout intents. Use these in components instead of raw scale values
  * whenever the spacing has semantic meaning ("screen padding", "section gap").
  *
+ * **Finance screens:** prefer **`layoutGrid`** (`@/theme`) for the strict 8 × 8 pt
+ * gutter (`inset` = 24 px horizontal rail). See `THEME.md` → Finance UI language.
+ *
  * **Premium vertical rhythm** — prefer **8 · 12 · 16 · 24 · 32** (`gapSm` · `gap` ·
  * `gapMd` · `gapLg` · `gapXl` / `sectionGap`) for screen sections; avoid ad-hoc gaps.
  * Legacy: `gapXs` (4), `sectionGapLg` (40), `sectionGapXl` (48); use only when a token
@@ -94,6 +97,8 @@ export const size = {
   buttonLg: 52,
 
   iconXs: 12,
+  /** Ledger footer clock glyph (~14 dp). */
+  expenseLedgerFooterClock: 14,
   iconSm: 16,
   icon: 20,
   iconMd: 24,
@@ -129,3 +134,27 @@ export type Spacing = typeof spacing;
 export type Space = typeof space;
 export type Size = typeof size;
 export type ZIndex = typeof zIndex;
+
+/**
+ * Strict **finance screen grid** — multiples of `4` px (pairs align to **8 pt** rhythm).
+ * Use for split‑expense / hub surfaces so header, tabs, cards, and rails share one gutter.
+ *
+ * | Step    | px | Role |
+ * | ------- | -- | ---- |
+ * | `micro` | 8  | Tight stacks, chip gaps |
+ * | `sm`    | 16 | Default sibling gaps |
+ * | `inset` | 24 | Horizontal screen gutter **and** standard card interior |
+ * | `section` | 32 | Vertical rhythm between major blocks |
+ * | `major` | 40 | Footer / rare large separation |
+ *
+ * Prefer **`layoutGrid.inset`** for `paddingHorizontal` on scroll content so tabs align with cards.
+ */
+export const layoutGrid = {
+  micro: rawSpacing['2'],
+  sm: rawSpacing['4'],
+  inset: rawSpacing['6'],
+  section: rawSpacing['8'],
+  major: rawSpacing['10'],
+} as const;
+
+export type LayoutGrid = typeof layoutGrid;

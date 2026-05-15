@@ -73,6 +73,69 @@ import { Button, Card, Text, Input, Skeleton } from '@/components';
 
 ---
 
+## Finance UI language (Nothing OS)
+
+Qisma’s split‑expense surfaces aim for a **premium handheld finance OS**, not generic SaaS or Material patterns. This section defines **intent**; tokens and primitives remain in `*.tokens.ts` and `@/components`.
+
+### Intent
+
+| Quality                     | Execution                                                                                          |
+| --------------------------- | -------------------------------------------------------------------------------------------------- |
+| **Minimal & calm**          | Few controls per viewport; whitespace carries meaning; no ornamental chrome.                       |
+| **Futuristic / engineered** | Mono rails for metadata, IDs, amounts, section kickers; rectilinear layouts aligned to one gutter. |
+| **Structured**              | **`layoutGrid`** for finance rails + **`space.*`** elsewhere — no arbitrary spacing.               |
+| **Precision**               | Tabular numerics where money moves (`fontVariant: ['tabular-nums']`, numeric styles).              |
+
+Every layout decision should answer: _would this align if we snapped it to an 8 × 8 dp invisible grid?_ The spacing scale is **4 px base** (pairs merge into **8 pt rhythm**: `gap-sm = 8`, `gap-md = 16`, `sectionGap = 32`, …).
+
+### Layout grid (`layoutGrid` in `@/theme`)
+
+Canonical finance rails — **header, tabs, scroll body, cards, and split rows share `layoutGrid.inset` (24 px)** horizontal padding:
+
+| Token     | px  | Use                                       |
+| --------- | --- | ----------------------------------------- |
+| `micro`   | 8   | Micro stacks, tight chrome gaps           |
+| `sm`      | 16  | Sibling gaps inside sections              |
+| `inset`   | 24  | **Screen gutter** + card interior padding |
+| `section` | 32  | Vertical rhythm between major blocks      |
+| `major`   | 40  | Scroll foot / large separation            |
+
+Import: `import { layoutGrid } from '@/theme'`. Prefer these steps over ad‑hoc numbers so columns stay optically aligned.
+
+### Palette & surfaces
+
+- **Use `useThemeColors()`** in RN views — never static `colors` or hex in features (both schemes stay monochrome‑first).
+- **Light:** warm paper / gray canvas (`background`), white/off‑white **layers** (`surfaceBase`, `surfaceElevated`), ink typography (`textPrimary`). Borders via **`borderSubtle`** / **`border`** — soft gray, never harsh black slabs around everything.
+- **Dark:** near‑black canvas + elevated charcoal surfaces; **accent** is restrained lime **only** for primary emphasis / focus (never rainbow accents across unrelated widgets).
+
+Minimal accent policy: **one** dominant accent action per screen; secondary actions outlined or tonal.
+
+### Depth & borders
+
+- Prefer **tonal separation** (`surfaceBase` → `surfaceElevated`) and **`StyleSheet.hairlineWidth`** borders over elevation.
+- **Shadows:** use sparingly — **`platformShadow('xs')`**, **`'premiumCard'`**, or **palette‑based soft blooms** only where something reads as “floating” (hero cards, sheets). Avoid stacks of heavy shadows or saturated glows.
+
+### Geometry
+
+- Corners come from **`radius.*`** — semantic shells (`card`, `inviteCard`, `full` pills). Prefer consistent radius families within one surface hierarchy on a screen.
+- Avoid cartoon‑thick strokes or symmetric blob layouts.
+
+### Typography
+
+- **Sans (Inter)** drives prose and display headings; keep hierarchy mostly via **size + spacing**, not escalating weights everywhere (**semiBold** over heavier stacks unless emphasis truly demands it).
+- **Mono (JetBrains Mono)** for technical rails: balances, timestamps, codes, uppercase kickers.
+- **Letter‑tracking:** display headings often pair **`letterSpacing.tighter`** / **`tight`**; rails use **`wide`** / **`wider`** / **`widest`** (already wired into `textStyles.overline` and presets).
+
+### What we deliberately avoid
+
+- Heavy shadows, bright gradients, glass‑heavy panels, neon multi‑accent dashboards.
+- Dense Material FAB stacks and overcrowded card grids (“startup bank app”).
+- Arbitrary spacing, rainbow semantic fills for decoration.
+
+Screens already modeled after this contract include expense detail (segment pills, hero card). Extend **new** finance flows by copying **those primitives**, not one‑off styling.
+
+---
+
 ## Color tokens (`colors.tokens.ts`)
 
 84 tokens, dark-first. Group → token → usage. All also available via Tailwind:

@@ -86,7 +86,7 @@ export function GroupHubBalanceSummaryCard({
   const glyph = statusGlyphColor(palette, variant, tone);
   const primaryColor = primaryTextColor(palette, variant, tone);
 
-  const borderColor = palette.overlayHeavy;
+  const borderColor = palette.borderSubtle;
 
   const showDividerBeforeCta = Boolean(showSettleCta && onSettlePress);
 
@@ -94,7 +94,7 @@ export function GroupHubBalanceSummaryCard({
     <View
       style={[
         styles.cardShell,
-        platformShadow('premiumCard'),
+        platformShadow('xs'),
         {
           borderColor,
           backgroundColor: palette.premiumCardSurface,
@@ -102,7 +102,7 @@ export function GroupHubBalanceSummaryCard({
       ]}
     >
       <View style={[StyleSheet.absoluteFillObject, { backgroundColor: palette.glass }]} />
-      <BalanceDotMatrixTexture dotColor={palette.textPrimary} />
+      <BalanceDotMatrixTexture dotColor={palette.textPrimary} dotOpacity={0.048} />
 
       <View style={styles.inner}>
         <View style={styles.labelRow}>
@@ -115,8 +115,6 @@ export function GroupHubBalanceSummaryCard({
             {eyebrow.toUpperCase()}
           </Text>
         </View>
-
-        <View style={[styles.ruleShort, { backgroundColor: palette.borderSubtle }]} />
 
         <Text
           style={[
@@ -148,7 +146,7 @@ export function GroupHubBalanceSummaryCard({
             style={({ pressed }) => [
               styles.ctaPill,
               {
-                borderColor: palette.textPrimary,
+                borderColor: palette.border,
                 backgroundColor: pressed ? palette.overlayStrong : palette.overlay,
                 opacity: settleDisabled ? 0.4 : 1,
               },
@@ -172,11 +170,8 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
   },
   inner: {
-    paddingTop: space.gapMd,
-    paddingBottom: space.gap,
-    paddingLeft: space.paddingLg,
-    paddingRight: space.paddingMd,
-    gap: space.gapXs,
+    padding: space.paddingLg,
+    gap: space.gapSm,
     alignItems: 'flex-start',
     zIndex: 1,
   },
@@ -200,18 +195,11 @@ const styles = StyleSheet.create({
     letterSpacing: typography.letterSpacing.widest,
     lineHeight: typography.fontSize.xs * typography.lineHeight.normal,
   },
-  ruleShort: {
-    marginTop: space.gapXs,
-    width: 36,
-    height: StyleSheet.hairlineWidth,
-    opacity: 0.85,
-  },
   primaryHero: {
     ...textStyles.numericLarge,
-    fontSize: typography.fontSize['5xl'],
-    lineHeight: typography.fontSize['5xl'] * typography.lineHeight.tight,
+    fontSize: typography.fontSize['4xl'],
+    lineHeight: typography.fontSize['4xl'] * typography.lineHeight.tight,
     fontVariant: ['tabular-nums'],
-    marginTop: space.gapXs,
     alignSelf: 'stretch',
   },
   primaryPreview: {
@@ -220,17 +208,14 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.lg,
     lineHeight: typography.fontSize.lg * typography.lineHeight.tight,
     letterSpacing: typography.letterSpacing.tight,
-    marginTop: space.gapXs,
     alignSelf: 'stretch',
   },
   ruleFull: {
-    marginTop: space.gapSm,
     alignSelf: 'stretch',
     height: StyleSheet.hairlineWidth,
-    opacity: 0.75,
+    opacity: 0.55,
   },
   ctaPill: {
-    marginTop: space.gapSm,
     alignSelf: 'flex-start',
     paddingVertical: space.gapSm,
     paddingHorizontal: space.paddingLg,

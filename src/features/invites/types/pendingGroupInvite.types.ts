@@ -1,4 +1,5 @@
 import type { GroupTypeId } from '@/features/groups/constants/groupTypes';
+import type { GroupMemberRole } from '@/features/groups/types/groupMember.types';
 
 /**
  * Inviter summary on `GET /v1/users/me/group-invites` items
@@ -22,7 +23,7 @@ export type PendingGroupInviteEntryDto = {
   groupName: string;
   groupAvatar: string | null;
   groupType: string;
-  role: string;
+  role: GroupMemberRole;
   invitedAt: string;
   invitedBy: PendingGroupInviteInviterDto | null;
 };
@@ -40,7 +41,7 @@ export type GroupInviteInboxItem = {
   /** Inviter profile when the API sends `invitedBy`. */
   invitedBy: PendingGroupInviteInviterDto | null;
   /** Target role for this invite when provided. */
-  role: string | null;
+  role: GroupMemberRole | null;
   /** Active member count when the API includes it (optional on contract). */
   memberCount: number | null;
   groupType: GroupTypeId | null;

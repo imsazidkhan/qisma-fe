@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text } from 'react-native';
 
 import type { GroupBalancesViewerSummaryStatus } from '@/features/groups/types/groupBalancesViewer.types';
-import { space, textStyles, typography, useThemeColors } from '@/theme';
+import { textStyles, typography, useThemeColors } from '@/theme';
 
 export type BalanceHeroFootlineProps = {
   count: number;
@@ -49,7 +49,6 @@ export function BalanceHeroFootline({ count, status }: BalanceHeroFootlineProps)
 
 const styles = StyleSheet.create({
   wrap: {
-    marginTop: space.gapSm,
     alignSelf: 'flex-start',
   },
   mono: {

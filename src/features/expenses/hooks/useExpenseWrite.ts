@@ -26,8 +26,15 @@ export function useExpenseWrite(target: ExpenseWriteTarget) {
       return patchExpense(target.groupId, target.expenseId, body as PatchExpenseBody);
     },
     onSuccess: (data) => {
-      applyExpenseWriteToCaches(queryClient, data, me?.id);
-      void queryClient.invalidateQueries({ queryKey: expensesQueryKeys.detail(data.expense.id) });
+      applyExpenseWriteToCaches(queryClient, data, me?.id, { routeGroupId: target.groupId });
+      const exp = data.expense;
+      const gid = exp?.groupId?.trim() || target.groupId.trim();
+      const eid = exp?.id?.trim();
+      if (gid && eid) {
+        void queryClient.invalidateQueries({
+          queryKey: expensesQueryKeys.detail(gid, eid),
+        });
+      }
     },
   });
 }

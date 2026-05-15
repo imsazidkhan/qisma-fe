@@ -1,4 +1,5 @@
 import type { ExpenseClassifyResponse } from '@/features/expenses/types/expenseTaxonomy.types';
+import { renderExpenseTierIcon } from '@/features/expenses/utils/renderExpenseTierIcon';
 import { radius, space, typography, useThemeColors } from '@/theme';
 import * as Haptics from 'expo-haptics';
 import type { ReactElement } from 'react';
@@ -22,10 +23,8 @@ export function ExpenseClassifySuggestionBlock({
   }
 
   const { category, subcategory } = suggestion;
-  const categoryIcon = category.icon ?? null;
   const matchPct = Math.round((suggestion.confidence ?? 0.98) * 100);
 
-  // Build breadcrumb trail
   const breadcrumbs: string[] = [];
   if (category.name) breadcrumbs.push(category.name);
   if (subcategory?.name) breadcrumbs.push(subcategory.name);
@@ -43,46 +42,25 @@ export function ExpenseClassifySuggestionBlock({
         }}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.gapMd }}>
-          {categoryIcon ? (
-            <View
-              style={{
-                width: 72,
-                height: 72,
-                borderRadius: radius.lg,
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: palette.surfaceRaised,
-                borderWidth: StyleSheet.hairlineWidth,
-                borderColor: palette.borderSubtle,
-              }}
-            >
-              <Text style={{ fontSize: 30 }}>{categoryIcon}</Text>
-            </View>
-          ) : (
-            <View
-              style={{
-                width: 72,
-                height: 72,
-                borderRadius: radius.lg,
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: palette.surfaceRaised,
-                borderWidth: StyleSheet.hairlineWidth,
-                borderColor: palette.borderSubtle,
-              }}
-            >
-              <Text
-                style={{
-                  fontFamily: typography.fontFamily.mono.medium,
-                  fontSize: typography.fontSize.lg,
-                  color: palette.textSecondary,
-                  textTransform: 'uppercase',
-                }}
-              >
-                {(category.name ?? '?').slice(0, 2)}
-              </Text>
-            </View>
-          )}
+          <View
+            style={{
+              width: 72,
+              height: 72,
+              borderRadius: radius.lg,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: palette.surfaceRaised,
+              borderWidth: StyleSheet.hairlineWidth,
+              borderColor: palette.borderSubtle,
+            }}
+          >
+            {renderExpenseTierIcon(category, {
+              size: 72,
+              glyphColor: palette.textSecondary,
+              fallbackTextColor: palette.textSecondary,
+              fallbackIon: 'pricetag-outline',
+            })}
+          </View>
 
           <View style={{ flex: 1, minWidth: 0, gap: space.gapXs }}>
             <View
@@ -200,7 +178,7 @@ export function ExpenseClassifySuggestionBlock({
               {t('expenses.add.classifyUseThis')}
             </Text>
           </Pressable>
-          </View>
+        </View>
       </View>
     </Animated.View>
   );

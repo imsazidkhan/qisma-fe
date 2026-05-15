@@ -1,108 +1,179 @@
-import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { memo, useCallback, type ReactElement } from 'react';
-import { Platform, Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import Animated, {
+  Easing,
+  interpolate,
+  interpolateColor,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { QismaPlusGlyphIcon } from '@/features/qisma/components/QismaTabGlyphIcons';
 import { QISMA_TAB_BAR_LAYOUT } from '@/features/qisma/constants/tabBarLayout';
-import { radius, spacing, useThemeMode } from '@/theme';
+import { duration, radius, useThemeColors, useThemeMode, zIndex } from '@/theme';
 
 export type QismaCenterFabProps = {
-  selected: boolean;
+  active: boolean;
   onPress: () => void;
-  palette: {
-    accent: string;
-    accentSoft: string;
-    textOnAccent: string;
-    accentPress: string;
-    border: string;
-  };
-  /** Reserved for parity with side tabs; press feedback uses RN `Pressable` styles only. */
   reduceMotion: boolean;
 };
 
-function QismaCenterFabInner({ selected, onPress, palette }: QismaCenterFabProps): ReactElement {
+const FAB_TIMING = Easing.inOut(Easing.ease);
+
+/** Matte disk + plus — restrained elevation for Lastbench floating rail. */
+function QismaCenterFabInner({ active, onPress, reduceMotion }: QismaCenterFabProps): ReactElement {
+  const palette = useThemeColors();
   const mode = useThemeMode();
+  const pressed = useSharedValue(0);
 
   const handlePress = useCallback(() => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     onPress();
   }, [onPress]);
 
-  const glowStyle: ViewStyle =
-    Platform.OS === 'ios'
-      ? {
-          shadowColor: palette.accent,
-          shadowOffset: { width: 0, height: 0 },
-          shadowOpacity: 0.45,
-          shadowRadius: 14,
-        }
-      : {
-          elevation: 6,
-        };
+  const handlePressIn = useCallback(() => {
+    if (reduceMotion) return;
+    pressed.value = withTiming(1, {
+      duration: duration.fast.ms,
+      easing: FAB_TIMING,
+    });
+  }, [pressed, reduceMotion]);
+
+  const handlePressOut = useCallback(() => {
+    if (reduceMotion) return;
+    pressed.value = withTiming(0, {
+      duration: duration.normal.ms,
+      easing: FAB_TIMING,
+    });
+  }, [pressed, reduceMotion]);
+
+  const fabBg = mode === 'light' ? palette.floatingTabInkActive : palette.black;
+  const fabIcon = mode === 'light' ? palette.white : palette.textPrimary;
+  const fabRing = mode === 'light' ? palette.white : palette.borderSubtle;
+
+  const floatStyle = useAnimatedStyle(() => {
+    const lift = active ? 1.004 : 1;
+    const pressScale = interpolate(pressed.value, [0, 1], [1, 0.97]);
+    return {
+      transform: [{ scale: lift * pressScale }],
+    };
+  }, [active, pressed]);
+
+  const glowStyle = useAnimatedStyle(
+    () => ({
+      backgroundColor: interpolateColor(
+        pressed.value,
+        [0, 1],
+        [
+          'rgba(255,255,255,0)',
+          mode === 'light' ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.12)',
+        ],
+      ),
+    }),
+    [mode],
+  );
 
   const fabDiameter = QISMA_TAB_BAR_LAYOUT.fabSize;
-  const selectedBump = selected ? 1.03 : 1;
+
+  const iosShadow =
+    mode === 'light'
+      ? {
+          shadowColor: palette.shadow,
+          shadowOffset: { width: 0, height: 9 },
+          shadowOpacity: 0.084,
+          shadowRadius: 17,
+        }
+      : {
+          shadowColor: palette.shadow,
+          shadowOffset: { width: 0, height: 10 },
+          shadowOpacity: 0.27,
+          shadowRadius: 14,
+        };
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel="Start a new split"
-      accessibilityHint="Opens the create flow for a shared expense"
-      accessibilityState={{ selected }}
-      onPress={handlePress}
-      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-      android_ripple={{ color: palette.accentSoft, borderless: false, foreground: true }}
-      style={({ pressed }) => [
+    <Animated.View
+      style={[
+        floatStyle,
         {
-          width: fabDiameter,
-          height: fabDiameter,
-          borderRadius: radius.fab,
-          overflow: 'hidden',
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: palette.border,
-          ...glowStyle,
-          transform: [{ scale: (pressed ? 0.93 : 1) * selectedBump }],
-          opacity: pressed ? 0.96 : 1,
+          zIndex: zIndex.sticky,
         },
       ]}
     >
-      <BlurView
-        intensity={40}
-        tint={mode === 'dark' ? 'dark' : 'light'}
-        experimentalBlurMethod={Platform.OS === 'android' ? 'dimezisBlurView' : undefined}
-        style={StyleSheet.absoluteFill}
-      />
-      <View
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Add expense"
+        accessibilityHint="Opens groups so you can choose where to log a split"
+        accessibilityState={{ selected: active }}
+        onPress={handlePress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        hitSlop={{ top: 12, bottom: 12, left: 6, right: 6 }}
+        android_ripple={{ color: palette.overlayMedium, borderless: false, foreground: true }}
         style={[
-          StyleSheet.absoluteFill,
+          styles.disk,
           {
-            backgroundColor: palette.accent,
-            opacity: 1,
+            width: fabDiameter,
+            height: fabDiameter,
+            borderRadius: radius.full,
+            backgroundColor: fabBg,
+            borderColor: fabRing,
+            ...Platform.select({
+              ios: iosShadow,
+              android: {
+                elevation: mode === 'light' ? (active ? 3 : 4) : active ? 7 : 8,
+              },
+              default: {
+                shadowColor: palette.shadow,
+                shadowOffset: { width: 0, height: 9 },
+                shadowOpacity: mode === 'light' ? 0.084 : 0.2,
+                shadowRadius: 16,
+              },
+            }),
           },
         ]}
-      />
-      <View
-        style={[
-          styles.glyphLayer,
-          {
-            backgroundColor: selected ? palette.accentPress : 'transparent',
-            paddingTop: spacing['0.5'],
-          },
-        ]}
-        pointerEvents="none"
       >
-        <QismaPlusGlyphIcon color={palette.textOnAccent} size={30} strokeWidth={1.85} />
-      </View>
-    </Pressable>
+        <Animated.View
+          pointerEvents="none"
+          style={[StyleSheet.absoluteFill, styles.glowDisk, glowStyle]}
+        />
+        <View style={styles.glyphLayer} pointerEvents="none">
+          <View style={styles.plusOpticalNudge}>
+            <QismaPlusGlyphIcon color={fabIcon} size={20} strokeWidth={1.5} />
+          </View>
+        </View>
+        {active ? (
+          <View pointerEvents="none" style={[styles.ring, { borderColor: palette.borderStrong }]} />
+        ) : null}
+      </Pressable>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  glyphLayer: {
-    ...StyleSheet.absoluteFillObject,
+  disk: {
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    overflow: 'visible',
+  },
+  glowDisk: {
+    borderRadius: radius.full,
+  },
+  glyphLayer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  plusOpticalNudge: {
+    transform: [{ translateX: 0.5 }, { translateY: 0.5 }],
+  },
+  ring: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: radius.full,
+    borderWidth: 2,
+    margin: -2,
+    opacity: 0.35,
   },
 });
 

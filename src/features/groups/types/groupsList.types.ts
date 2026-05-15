@@ -20,4 +20,14 @@ export type GroupListItem = {
   role?: string;
   joinedAt?: string;
   isCreator?: boolean;
+  /** From `GET /v1/users/me/groups/home` (non-deleted expense count). */
+  expenseCount?: number;
+  /** Latest expense title by `createdAt` (home cards). */
+  recentExpenseTitle?: string | null;
+  /** Simplified settlement edges touching the viewer. */
+  pendingSettlementCount?: number;
+  lastActivityType?: string | null;
+  lastActivityActorName?: string | null;
+  lastActivityPreview?: string | null;
+  balanceUpdatedAt?: string | null;
 };

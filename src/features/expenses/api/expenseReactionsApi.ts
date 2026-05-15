@@ -101,11 +101,12 @@ export function mapExpenseReactionError(err: unknown): { titleKey: string; messa
 }
 
 /**
- * `POST /v1/expenses/:id/reactions` — body `{ emoji }` (trimmed, 1–32 chars).
+ * `POST /v1/groups/:groupId/expenses/:expenseId/reactions` — body `{ emoji }` (trimmed, 1–32 chars).
  * **201** when a new row is created; **200** idempotent when the same user already reacted with that emoji.
  * Response `data` is `ExpenseReactionEntryDto` in both cases.
  */
 export async function createExpenseReaction(
+  groupId: string,
   expenseId: string,
   body: AddExpenseReactionRequestBody,
   signal?: AbortSignal,
@@ -120,10 +121,13 @@ export async function createExpenseReaction(
     return mockCreateExpenseReaction(expenseId, payload);
   }
 
-  const raw = await apiFetch<unknown>(ENDPOINTS.expenses.reactions(expenseId), {
-    method: 'POST',
-    body: payload,
-    signal,
-  });
+  const raw = await apiFetch<unknown>(
+    ENDPOINTS.expenses.groupExpenseReactions(groupId, expenseId),
+    {
+      method: 'POST',
+      body: payload,
+      signal,
+    },
+  );
   return parseExpenseReactionResponse(raw);
 }

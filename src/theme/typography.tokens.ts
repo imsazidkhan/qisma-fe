@@ -40,8 +40,16 @@ export const fontSize = {
   sm: 13,
   md: 14,
   base: 16,
+  /** Thread composer primary line — restrained 15 dp body matching chat affordances. */
+  threadComposer: 15,
+  /** Ambient hub search body — optical between `base` and `lg`. */
+  ambientSearch: 17,
   lg: 18,
+  /** Ledger row amount numerals — ~21 dp headline beside title. */
+  expenseLedgerAmount: 21,
   xl: 20,
+  /** Premium ledger row title — Wallet × Nothing rhythm (~22 dp). */
+  feedCardTitle: 22,
   '2xl': 24,
   /** Group hub hero — group name (between 3xl and 4xl). */
   hubTitle: 32,
@@ -68,6 +76,20 @@ export const lineHeight = {
 export const letterSpacing = {
   tighter: -0.8,
   tight: -0.4,
+  /** Ledger card title — optical tightening on soft slabs. */
+  walletCardTitle: -0.5,
+  /** Ledger amount numerals — paired with {@link fontSize}.`2xl`. */
+  walletAmount: -0.6,
+  /** Ledger subtitle under feed card title (~16 dp body). */
+  walletSubtitle: -0.2,
+  /** Inline metadata row — optical tightening (~14 dp). */
+  ledgerCaption: -0.1,
+  /** Hub “EXPENSES” rail label — wide-track uppercase. */
+  expenseLedgerSection: 2,
+  /** Floating tab labels — slight tightening without crowding. */
+  navTab: -0.2,
+  /** Ambient search field — ~−0.01 em at 17 dp. */
+  ambientSearch: -0.17,
   normal: 0,
   wide: 0.2,
   wider: 0.5,

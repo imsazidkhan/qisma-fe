@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-import { radius, space, textStyles, typography, zIndex } from '@/theme';
+import { radius, size, space, typography, zIndex } from '@/theme';
 
 export const loginScreenStyles = StyleSheet.create({
   safe: {
@@ -11,8 +11,8 @@ export const loginScreenStyles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    paddingHorizontal: space.screenPadding,
-    paddingTop: space.gapMd,
+    paddingHorizontal: space.screenPaddingLg,
+    paddingTop: space.gap,
     paddingBottom: space.sectionGap,
   },
 
@@ -20,7 +20,7 @@ export const loginScreenStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: space.sectionGap,
+    marginBottom: space.gapLg,
   },
   brandRow: {
     flexDirection: 'row',
@@ -35,14 +35,21 @@ export const loginScreenStyles = StyleSheet.create({
   },
 
   header: {
-    gap: space.gapMd,
-    marginBottom: space.sectionGapLg,
+    gap: space.gap,
+    marginBottom: space.sectionGap,
   },
   title: {
-    ...textStyles.displaySmall,
+    fontFamily: typography.fontFamily.sans.semiBold,
+    fontSize: typography.fontSize['4xl'],
+    fontWeight: typography.fontWeight.semibold,
+    lineHeight: Math.round(typography.fontSize['4xl'] * typography.lineHeight.tight),
+    letterSpacing: typography.letterSpacing.tight,
   },
   subtitle: {
-    ...textStyles.body,
+    fontFamily: typography.fontFamily.mono.regular,
+    fontSize: typography.fontSize.sm,
+    lineHeight: typography.fontSize.sm * typography.lineHeight.relaxed,
+    letterSpacing: typography.letterSpacing.wide,
   },
 
   scroll: {
@@ -132,9 +139,13 @@ export const loginScreenStyles = StyleSheet.create({
   },
 
   footer: {
-    gap: space.gap,
-    paddingTop: space.gap,
+    gap: space.gapLg,
     flexShrink: 0,
+  },
+  /** Tight cluster for legal copy under the CTA. */
+  footnoteBlock: {
+    alignSelf: 'stretch',
+    gap: space.gapXs,
   },
 
   /** Pins CTA + footnote to the bottom of the screen (above IME when window resizes). */
@@ -155,6 +166,52 @@ export const loginScreenStyles = StyleSheet.create({
     fontSize: typography.fontSize['2xs'],
     lineHeight: typography.fontSize['2xs'] * typography.lineHeight.relaxed,
     letterSpacing: typography.letterSpacing.wide,
+    textAlign: 'center',
+  },
+  footnoteLink: {
+    fontFamily: typography.fontFamily.mono.medium,
+    fontSize: typography.fontSize['2xs'],
+    lineHeight: typography.fontSize['2xs'] * typography.lineHeight.relaxed,
+    letterSpacing: typography.letterSpacing.wide,
+  },
+
+  footerCtaAlign: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+  },
+  footerCtaHit: {
+    paddingVertical: space.gapSm,
+    paddingHorizontal: space.gapMd,
+    minHeight: size.touchMin,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  footerCtaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space.gapSm,
+  },
+  footerCtaLabel: {
+    fontFamily: typography.fontFamily.mono.medium,
+    fontSize: typography.fontSize.sm,
+    letterSpacing: typography.letterSpacing.widest,
+    textTransform: 'uppercase',
+  },
+  footerCtaArrow: {
+    fontFamily: typography.fontFamily.mono.regular,
+    fontSize: typography.fontSize.lg,
+    lineHeight: typography.fontSize.lg,
+  },
+  footerCtaMeta: {
+    fontFamily: typography.fontFamily.mono.regular,
+    fontSize: typography.fontSize.xs,
+    letterSpacing: typography.letterSpacing.wide,
+  },
+
+  loginCta: {
+    borderRadius: radius.sm,
+    minHeight: 56,
   },
 
   progressTrack: {

@@ -27,22 +27,42 @@ export type ExpenseSplitPayload =
       remainderUserId: string;
     };
 
+/**
+ * Veloraq `split` on create/patch — discriminator **`splitType`**, enum per server validation.
+ */
+export type VeloraqExpenseSplitWire =
+  | { splitType: 'equal'; participantUserIds: string[] }
+  | {
+      splitType: 'exact';
+      lines: { participantUserIds: string[]; amount: string }[];
+    }
+  | {
+      splitType: 'percentage';
+      lines: { participantUserIds: string[]; percent: number }[];
+    }
+  | {
+      splitType: 'shares';
+      lines: { participantUserIds: string[]; shares: number }[];
+    }
+  | {
+      splitType: 'adjustment';
+      lines: { participantUserIds: string[]; amount: string }[];
+      remainderUserId: string;
+    };
+
 /** Wire body for `POST /v1/groups/:groupId/expenses` (`CreateExpenseBodyDto` on the server). */
 export type CreateGroupExpenseBody = {
   title: string;
   amount: string;
   paidByUserId: string;
-  split: ExpenseSplitPayload;
+  split: VeloraqExpenseSplitWire;
   /** `YYYY-MM-DD` */
   date: string;
   currency?: string;
   /** Optional server scale / precision hint — shape depends on API. */
   scale?: number | string;
-  category?: string;
-  categoryId?: string;
-  subcategoryId?: string;
+  /** Category / subcategory are inferred server-side from `title` on create. */
   merchantId?: string;
-  tagIds?: string[];
   metadata?: Record<string, unknown>;
   city?: string;
   description?: string;
@@ -91,21 +111,20 @@ export type CreateExpenseResponse = {
   groupBalances: GroupBalancesSnapshot;
 };
 
-/** `PATCH /v1/groups/:groupId/expenses/:expenseId` — `PatchExpenseBodyDto`; every field optional. */
+/** `PATCH /v1/groups/:groupId/expenses/:expenseId` — `PatchExpenseBodyDto`; every field optional unless server rules apply. */
 export type PatchExpenseBody = {
   title?: string;
   amount?: string;
   paidByUserId?: string;
   /** Required when `amount` or `paidByUserId` changes; omit for metadata-only edits. */
-  split?: ExpenseSplitPayload;
+  split?: VeloraqExpenseSplitWire;
+  /** Optimistic concurrency — mismatch → `EXPENSE_STALE_VERSION` / 409. */
+  expectedUpdatedAt?: string;
   date?: string;
   currency?: string;
   scale?: number | string;
-  category?: string;
-  categoryId?: string | null;
-  subcategoryId?: string | null;
+  /** Category corrections: prefer `POST …/reclassify` with slugs; do not send relational ids here. */
   merchantId?: string | null;
-  tagIds?: string[];
   metadata?: Record<string, unknown>;
   city?: string;
   description?: string;

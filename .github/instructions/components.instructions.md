@@ -1,6 +1,6 @@
 ---
-description: "Use when writing, editing, or reviewing React Native components (.tsx files). Enforces component size, composition, accessibility, list performance, and Nothing OS visual rules."
-applyTo: "**/*.tsx"
+description: 'Use when writing, editing, or reviewing React Native components (.tsx files). Enforces component size, composition, accessibility, list performance, and Nothing OS visual rules.'
+applyTo: '**/*.tsx'
 ---
 
 # Component Authoring Rules
@@ -51,13 +51,13 @@ return (
 
 ```tsx
 // ❌ WRONG every time — hardcoded or static import
-<View style={{ backgroundColor: '#111' }} />
+<View style={{ backgroundColor: '#111' }} />;
 import { colors } from '@/theme'; // dark-only, breaks light mode
 
 // ✅ CORRECT
 import { useThemeColors, textStyles, space } from '@/theme';
 const palette = useThemeColors();
-<View style={{ backgroundColor: palette.surfaceElevated }} />
+<View style={{ backgroundColor: palette.surfaceElevated }} />;
 ```
 
 - All colors via `useThemeColors()`. Spacing via `space.*` or NativeWind `p-*`/`gap-*`. Typography via `textStyles.*`.
@@ -76,12 +76,12 @@ const palette = useThemeColors();
 
 ```tsx
 // ❌ BAD
-<FlatList data={items} renderItem={(x) => <Row item={x.item} />} />
+<FlatList data={items} renderItem={(x) => <Row item={x.item} />} />;
 
 // ✅ GOOD
 const renderItem = useCallback(({ item }: { item: MyType }) => <Row item={item} />, []);
 const keyExtractor = useCallback((item: MyType) => item.id, []);
-<FlatList data={items} renderItem={renderItem} keyExtractor={keyExtractor} />
+<FlatList data={items} renderItem={renderItem} keyExtractor={keyExtractor} />;
 ```
 
 ## Motion

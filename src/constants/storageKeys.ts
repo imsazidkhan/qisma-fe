@@ -32,6 +32,12 @@ export const STORAGE_KEYS = {
   onboardingDisplayNameComplete: 'qisma.onboarding.displayName.complete',
   /** @deprecated Use `onboardingFullyCompleteUserId`; read only for migration. */
   onboardingDisplayNameUserId: 'qisma.onboarding.displayName.userId',
+
+  /**
+   * `auth.me.id` for which the post-sign-in "You've been invited…" sheet was dismissed.
+   * Cleared on sign-out is optional — mismatch on new user shows the sheet again.
+   */
+  invitesPostSignInPromptDismissedUserId: 'qisma.invites.postSignIn.dismissedUserId',
 } as const;
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];

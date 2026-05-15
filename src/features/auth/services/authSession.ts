@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import '../flow';
 
 import { logout, refreshTokens } from '../api/authApi';
+import { notifySessionTokensRefreshed } from '../sessionQueryRevalidation';
 import { useAuthSessionStore } from '../store/useAuthSessionStore';
 import type { VerifyOtpResponse } from '../types/otp.types';
 
@@ -226,6 +227,7 @@ export async function refreshStoredSession(): Promise<VerifyOtpResponse> {
   }
   const next = await refreshTokens({ refreshToken });
   await saveAuthSession(next);
+  notifySessionTokensRefreshed();
   return next;
 }
 

@@ -17,8 +17,12 @@ const OPTIONS: { value: ThemePreference; label: string }[] = [
 ];
 
 export type ThemeToggleProps = {
-  /** `compact` reads as a utility control on dense hubs (e.g. Groups). */
-  variant?: 'default' | 'compact';
+  /**
+   * `default` — inverted active slab (`textPrimary` fill + `textInverse` label).
+   * `compact` — utility chrome for dense hubs.
+   * `auth` — minimal segmented control: ink pill on active, low-contrast chrome.
+   */
+  variant?: 'default' | 'compact' | 'auth';
 };
 
 /**
@@ -32,33 +36,48 @@ export function ThemeToggle({ variant = 'default' }: ThemeToggleProps) {
   const palette = useThemeColors();
   const [preference, setPreference] = useThemePreference();
   const compact = variant === 'compact';
+  const auth = variant === 'auth';
 
   return (
     <View
       style={[
         styles.track,
         compact ? styles.trackCompact : null,
+        auth ? styles.trackAuth : null,
         {
-          borderColor: compact ? palette.borderDivider : palette.border,
+          borderColor: auth
+            ? palette.borderSubtle
+            : compact
+              ? palette.borderDivider
+              : palette.border,
+          backgroundColor: 'transparent',
         },
       ]}
     >
       {OPTIONS.map((opt) => {
         const active = preference === opt.value;
-        const segmentBg = compact
+        const segmentBg = auth
           ? active
-            ? palette.overlayStrong
+            ? palette.textPrimary
             : 'transparent'
-          : active
-            ? palette.textPrimary
-            : 'transparent';
-        const labelColor = compact
+          : compact
+            ? active
+              ? palette.overlayStrong
+              : 'transparent'
+            : active
+              ? palette.textPrimary
+              : 'transparent';
+        const labelColor = auth
           ? active
-            ? palette.textPrimary
-            : palette.textMuted
-          : active
             ? palette.textInverse
-            : palette.textSecondary;
+            : palette.textMuted
+          : compact
+            ? active
+              ? palette.textPrimary
+              : palette.textMuted
+            : active
+              ? palette.textInverse
+              : palette.textSecondary;
         return (
           <Pressable
             key={opt.value}
@@ -67,15 +86,16 @@ export function ThemeToggle({ variant = 'default' }: ThemeToggleProps) {
             accessibilityState={{ selected: active }}
             accessibilityLabel={`Use ${opt.label.toLowerCase()} theme`}
             style={[
-              compact ? styles.segmentCompact : styles.segment,
+              auth ? styles.segmentAuth : compact ? styles.segmentCompact : styles.segment,
               { backgroundColor: segmentBg },
             ]}
           >
             <Text
               style={[
-                compact ? styles.labelCompact : styles.label,
-                compact && active ? styles.labelCompactActive : null,
-                { color: labelColor },
+                auth ? styles.labelAuth : compact ? styles.labelCompact : styles.label,
+                compact && active && !auth ? styles.labelCompactActive : null,
+                auth && active ? styles.labelAuthActive : null,
+                { color: labelColor, opacity: auth && !active ? 0.72 : 1 },
               ]}
             >
               {opt.label}
@@ -100,6 +120,11 @@ const styles = StyleSheet.create({
     padding: 1,
     borderRadius: radius.xs,
   },
+  trackAuth: {
+    borderRadius: radius.md,
+    padding: 1,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
   segment: {
     paddingVertical: space.gapSm,
     paddingHorizontal: space.padding,
@@ -110,6 +135,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing['1'],
     borderRadius: radius.xs,
   },
+  segmentAuth: {
+    paddingVertical: spacing['1'],
+    paddingHorizontal: spacing['2'],
+    borderRadius: radius.sm,
+    minWidth: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   label: {
     fontFamily: typography.fontFamily.mono.regular,
     fontSize: typography.fontSize['2xs'],
@@ -119,6 +152,14 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.mono.regular,
     fontSize: typography.fontSize['2xs'],
     letterSpacing: typography.letterSpacing.wide,
+  },
+  labelAuth: {
+    fontFamily: typography.fontFamily.mono.regular,
+    fontSize: typography.fontSize['2xs'],
+    letterSpacing: typography.letterSpacing.wider,
+  },
+  labelAuthActive: {
+    fontFamily: typography.fontFamily.mono.medium,
   },
   labelCompactActive: {
     fontFamily: typography.fontFamily.mono.medium,

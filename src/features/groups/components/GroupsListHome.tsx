@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import { memo, useCallback, useEffect, useMemo, useState, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -12,59 +11,82 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useIsFocused } from '@react-navigation/native';
 
-import { BackHeaderButton, ThemeToggle } from '@/components/ui';
-import { ROUTES } from '@/constants/routes';
+import { AmbientSearchField } from '@/components/ui';
+
 import { GroupListCard } from '@/features/groups/components/GroupListCard';
-import type { GroupListItem } from '@/features/groups/types/groupsList.types';
-import { formatGroupsHubInlineMeta } from '@/features/groups/utils/formatGroupsHubInlineMeta';
 import {
-  radius,
-  size,
-  space,
-  spacing,
-  textStyles,
-  typography,
-  useThemeColors,
-  zIndex,
-} from '@/theme';
+  GROUPS_HUB_PROFILE_GLYPH_SIZE,
+  GroupsHubProfileIconButton,
+  GroupsPremiumHeader,
+} from '@/features/groups/components/GroupsPremiumHeader';
+import { useHomeDashboardHeaderController } from '@/features/home/hooks/useHomeDashboardHeaderController';
+import type { GroupListItem } from '@/features/groups/types/groupsList.types';
+import type { GroupsHomeTabQuery } from '@/features/groups/types/groupHome.types';
+import { formatGroupsHubInlineMeta } from '@/features/groups/utils/formatGroupsHubInlineMeta';
+import { layoutGrid, spacing, space, typography } from '@/theme';
+import { useThemeColors, useThemeMode } from '@/theme/ThemeProvider';
 
 export type GroupsListHomeProps = {
   groups: GroupListItem[];
+  homeTab: GroupsHomeTabQuery;
+  onHomeTabChange: (tab: GroupsHomeTabQuery) => void;
   isFetching: boolean;
   isError: boolean;
   onRetry: () => void;
   onRefresh: () => void;
   scrollBottomPadding: number;
   onGroupPress?: (groupId: string) => void;
-  onHomeBackPress?: () => void;
 };
 
-type BalanceFilter = 'all' | 'owe' | 'owed' | 'settled';
-
-function toneMatchesFilter(item: GroupListItem, f: BalanceFilter): boolean {
-  if (f === 'all') return true;
-  if (f === 'owe') return item.balance.tone === 'you_owe';
-  if (f === 'owed') return item.balance.tone === 'owed_to_you';
-  return item.balance.tone === 'settled';
+function formatGroupsDateLine(language: string | undefined, d: Date): string {
+  const locale = language?.replace('_', '-') ?? undefined;
+  return new Intl.DateTimeFormat(locale, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  }).format(d);
 }
 
+function useGroupsScreenDateLine(): string {
+  const { i18n } = useTranslation();
+  const isFocused = useIsFocused();
+  const [line, setLine] = useState(() => formatGroupsDateLine(i18n.language, new Date()));
+
+  useEffect(() => {
+    if (!isFocused) return;
+    setLine(formatGroupsDateLine(i18n.language, new Date()));
+  }, [isFocused, i18n.language]);
+
+  return line;
+}
+
+const FILTER_UNDERLINE_PAD = 14;
+const LIST_GAP = spacing['6'];
+
 type HubChromeProps = {
+  dateLine: string;
+  profileAccessibilityLabel: string;
+  profileAccessibilityHint?: string;
+  onProfilePress: () => void;
   query: string;
   onQueryChange: (q: string) => void;
-  balanceFilter: BalanceFilter;
-  onBalanceFilterChange: (f: BalanceFilter) => void;
+  balanceFilter: GroupsHomeTabQuery;
+  onBalanceFilterChange: (f: GroupsHomeTabQuery) => void;
   hubMetaLine: string | null;
   isError: boolean;
   onRetry: () => void;
-  onHomeBackPress?: () => void;
 };
 
 const GroupsHubChrome = memo(function GroupsHubChrome({
+  dateLine,
+  profileAccessibilityLabel,
+  profileAccessibilityHint,
+  onProfilePress,
   query,
   onQueryChange,
   balanceFilter,
@@ -72,10 +94,10 @@ const GroupsHubChrome = memo(function GroupsHubChrome({
   hubMetaLine,
   isError,
   onRetry,
-  onHomeBackPress,
 }: HubChromeProps): ReactElement {
   const { t } = useTranslation();
   const palette = useThemeColors();
+  const mode = useThemeMode();
 
   const segments = useMemo(
     () =>
@@ -91,7 +113,7 @@ const GroupsHubChrome = memo(function GroupsHubChrome({
           a11y: t('groups.filterChip.oweA11y'),
         },
         {
-          id: 'owed' as const,
+          id: 'get_back' as const,
           label: t('groups.filterChip.getBack'),
           a11y: t('groups.filterChip.getBackA11y'),
         },
@@ -104,82 +126,64 @@ const GroupsHubChrome = memo(function GroupsHubChrome({
     [t],
   );
 
+  const heroCaption = hubMetaLine ?? t('groups.subtitle');
+
   return (
-    <View style={{ paddingBottom: space.gapMd }}>
-      <View style={styles.topToolbar} accessibilityRole="toolbar">
-        {onHomeBackPress ? (
-          <BackHeaderButton
-            onPress={onHomeBackPress}
-            accessibilityLabel={t('common.backToHomeA11y')}
-          />
-        ) : (
-          <View style={{ width: size.touchMin }} />
-        )}
-        <View style={styles.topToolbarSpacer} />
-        <ThemeToggle variant="compact" />
-      </View>
+    <View style={styles.hubChromeRoot}>
+      <GroupsPremiumHeader dateLine={dateLine} />
 
-      <View style={styles.headerTitlesBlock}>
-        <Text
-          style={[textStyles.displayMedium, { color: palette.textPrimary }]}
-          accessibilityRole="header"
-        >
-          {t('groups.title')}
-        </Text>
-        <Text
-          style={[
-            textStyles.body,
-            {
-              color: palette.textLabel,
-              marginTop: space.gapSm,
-              lineHeight: typography.fontSize.md * typography.lineHeight.relaxed,
-            },
-          ]}
-        >
-          {t('groups.subtitle')}
-        </Text>
-        {hubMetaLine ? (
+      <View style={styles.titleRow}>
+        <View style={styles.titleCopy}>
           <Text
-            style={[styles.hubMetaInline, { color: palette.textSecondary }]}
-            accessibilityRole="text"
+            style={[
+              styles.heroTitle,
+              {
+                color: palette.textPrimary,
+                letterSpacing: typography.letterSpacing.tight,
+                ...(Platform.OS === 'android' ? { includeFontPadding: false } : {}),
+              },
+            ]}
           >
-            {hubMetaLine}
+            {t('groups.title')}
           </Text>
-        ) : null}
+          <Text
+            style={[styles.heroCaption, { color: palette.textSecondary, marginTop: spacing['2'] }]}
+            accessibilityRole="text"
+            numberOfLines={3}
+          >
+            {heroCaption}
+          </Text>
+        </View>
+        <View style={styles.titleProfileSlot}>
+          <GroupsHubProfileIconButton
+            onPress={onProfilePress}
+            accessibilityLabel={profileAccessibilityLabel}
+            accessibilityHint={profileAccessibilityHint}
+          >
+            <Ionicons
+              name="person-outline"
+              size={GROUPS_HUB_PROFILE_GLYPH_SIZE}
+              color={palette.textSecondary}
+            />
+          </GroupsHubProfileIconButton>
+        </View>
       </View>
 
-      <View
-        style={[
-          styles.searchShell,
-          {
-            borderColor: palette.borderDivider,
-            backgroundColor: palette.surfaceBase,
-          },
-        ]}
-      >
-        <Ionicons
-          name="search"
-          size={size.iconSm}
-          color={palette.textSecondary}
-          style={styles.searchIcon}
-        />
-        <TextInput
+      <View style={styles.searchSlot}>
+        <AmbientSearchField
           value={query}
           onChangeText={onQueryChange}
           placeholder={t('groups.searchPlaceholder')}
-          placeholderTextColor={palette.placeholder}
-          cursorColor={palette.cursor}
-          selectionColor={palette.selection}
-          style={[styles.searchInput, { color: palette.textPrimary }]}
-          returnKeyType="search"
-          onSubmitEditing={() => Keyboard.dismiss()}
-          accessibilityLabel={t('groups.searchA11y')}
+          searchAccessibilityLabel={t('groups.searchA11y')}
+          onFilterPress={() => Keyboard.dismiss()}
+          filterAccessibilityLabel={t('groups.filterSearchA11y')}
         />
       </View>
 
       <View style={styles.filterRow}>
         {segments.map((seg) => {
           const selected = balanceFilter === seg.id;
+          const mutedInk = mode === 'light' ? 'rgba(0,0,0,0.3)' : palette.textMuted;
           return (
             <Pressable
               key={seg.id}
@@ -193,24 +197,30 @@ const GroupsHubChrome = memo(function GroupsHubChrome({
                 style={[
                   styles.filterLabel,
                   {
-                    color: selected ? palette.textPrimary : palette.textMuted,
+                    color: selected ? palette.textPrimary : mutedInk,
+                    opacity: selected ? 1 : 0.82,
                     fontFamily: selected
-                      ? typography.fontFamily.mono.medium
-                      : typography.fontFamily.mono.regular,
+                      ? typography.fontFamily.sans.medium
+                      : typography.fontFamily.sans.regular,
+                    fontWeight: selected
+                      ? typography.fontWeight.medium
+                      : typography.fontWeight.regular,
                   },
                 ]}
               >
                 {seg.label}
               </Text>
-              <View
-                style={[
-                  styles.filterUnderline,
-                  {
-                    height: selected ? spacing['0.5'] : StyleSheet.hairlineWidth,
-                    backgroundColor: selected ? palette.textPrimary : 'transparent',
-                  },
-                ]}
-              />
+              <View style={styles.filterUnderlineTrack}>
+                <View
+                  style={[
+                    styles.filterUnderlineBar,
+                    {
+                      opacity: selected ? 0.42 : 0,
+                      backgroundColor: selected ? palette.textPrimary : 'transparent',
+                    },
+                  ]}
+                />
+              </View>
             </Pressable>
           );
         })}
@@ -223,12 +233,10 @@ const GroupsHubChrome = memo(function GroupsHubChrome({
           onPress={() => void onRetry()}
           style={styles.errorInline}
         >
-          <Text style={[textStyles.caption, { color: palette.textSecondary, flex: 1 }]}>
+          <Text style={[styles.errorBody, { color: palette.textSecondary, flex: 1 }]}>
             {t('groups.loadError')}
           </Text>
-          <Text style={[textStyles.labelSmall, { color: palette.accent }]}>
-            {t('groups.retry')}
-          </Text>
+          <Text style={[styles.errorRetry, { color: palette.accent }]}>{t('groups.retry')}</Text>
         </Pressable>
       ) : null}
     </View>
@@ -237,18 +245,20 @@ const GroupsHubChrome = memo(function GroupsHubChrome({
 
 export function GroupsListHome({
   groups,
+  homeTab,
+  onHomeTabChange,
   isFetching,
   isError,
   onRetry,
   onRefresh,
   scrollBottomPadding,
   onGroupPress,
-  onHomeBackPress,
 }: GroupsListHomeProps): ReactElement {
   const { t } = useTranslation();
   const palette = useThemeColors();
+  const dateLine = useGroupsScreenDateLine();
+  const { headerProps } = useHomeDashboardHeaderController();
   const [query, setQuery] = useState('');
-  const [balanceFilter, setBalanceFilter] = useState<BalanceFilter>('all');
   const [pullRefreshing, setPullRefreshing] = useState(false);
 
   useEffect(() => {
@@ -259,10 +269,9 @@ export function GroupsListHome({
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const searchFiltered =
-      q.length === 0 ? groups : groups.filter((g) => g.name.toLowerCase().includes(q));
-    return searchFiltered.filter((g) => toneMatchesFilter(g, balanceFilter));
-  }, [balanceFilter, groups, query]);
+    if (q.length === 0) return groups;
+    return groups.filter((g) => g.name.toLowerCase().includes(q));
+  }, [groups, query]);
 
   const hubMetaLine = useMemo(() => formatGroupsHubInlineMeta(filtered, t), [filtered, t]);
 
@@ -273,7 +282,7 @@ export function GroupsListHome({
     [onGroupPress],
   );
 
-  const itemSeparator = useCallback(() => <View style={{ height: space.gapSm }} />, []);
+  const itemSeparator = useCallback(() => <View style={{ height: LIST_GAP }} />, []);
 
   const keyExtractor = useCallback((item: GroupListItem) => item.id, []);
 
@@ -285,61 +294,116 @@ export function GroupsListHome({
   const listHeader = useMemo(
     () => (
       <GroupsHubChrome
+        dateLine={dateLine}
+        profileAccessibilityLabel={headerProps.profileAccessibilityLabel}
+        profileAccessibilityHint={headerProps.profileAccessibilityHint}
+        onProfilePress={headerProps.onProfilePress}
         query={query}
         onQueryChange={setQuery}
-        balanceFilter={balanceFilter}
-        onBalanceFilterChange={setBalanceFilter}
+        balanceFilter={homeTab}
+        onBalanceFilterChange={onHomeTabChange}
         hubMetaLine={hubMetaLine}
         isError={isError}
         onRetry={onRetry}
-        onHomeBackPress={onHomeBackPress}
       />
     ),
-    [balanceFilter, hubMetaLine, isError, onHomeBackPress, onRetry, query],
+    [homeTab, dateLine, headerProps, hubMetaLine, isError, onRetry, query, onHomeTabChange],
   );
 
   const emptyComponent = useMemo(() => {
     if (filtered.length > 0) {
       return undefined;
     }
+    const q = query.trim();
+    if (q.length > 0) {
+      return (
+        <Text
+          style={[
+            styles.emptyBody,
+            { color: palette.textMuted, textAlign: 'center', paddingTop: space.gapLg },
+          ]}
+        >
+          {t('groups.searchEmpty')}
+        </Text>
+      );
+    }
     if (groups.length === 0) {
+      if (homeTab === 'all') {
+        return (
+          <View style={{ paddingTop: space.gapLg, gap: space.gapMd }}>
+            <Text
+              style={[styles.emptyTitle, { color: palette.textPrimary }]}
+              accessibilityRole="header"
+            >
+              {t('groups.hubEmptyTitle')}
+            </Text>
+            <Text style={[styles.emptyBody, { color: palette.textSecondary }]}>
+              {t('groups.hubEmptyBody')}
+            </Text>
+          </View>
+        );
+      }
+      if (homeTab === 'owe') {
+        return (
+          <View style={{ paddingTop: space.gapLg, gap: space.gapMd }}>
+            <Text
+              style={[styles.emptyTitle, { color: palette.textPrimary }]}
+              accessibilityRole="header"
+            >
+              {t('groups.hubEmptyTabOweTitle')}
+            </Text>
+            <Text style={[styles.emptyBody, { color: palette.textSecondary }]}>
+              {t('groups.hubEmptyTabOweBody')}
+            </Text>
+          </View>
+        );
+      }
+      if (homeTab === 'get_back') {
+        return (
+          <View style={{ paddingTop: space.gapLg, gap: space.gapMd }}>
+            <Text
+              style={[styles.emptyTitle, { color: palette.textPrimary }]}
+              accessibilityRole="header"
+            >
+              {t('groups.hubEmptyTabGetBackTitle')}
+            </Text>
+            <Text style={[styles.emptyBody, { color: palette.textSecondary }]}>
+              {t('groups.hubEmptyTabGetBackBody')}
+            </Text>
+          </View>
+        );
+      }
       return (
         <View style={{ paddingTop: space.gapLg, gap: space.gapMd }}>
           <Text
-            style={[textStyles.label, { color: palette.textPrimary }]}
+            style={[styles.emptyTitle, { color: palette.textPrimary }]}
             accessibilityRole="header"
           >
-            {t('groups.hubEmptyTitle')}
+            {t('groups.hubEmptyTabSettledTitle')}
           </Text>
-          <Text style={[textStyles.body, { color: palette.textSecondary }]}>
-            {t('groups.hubEmptyBody')}
+          <Text style={[styles.emptyBody, { color: palette.textSecondary }]}>
+            {t('groups.hubEmptyTabSettledBody')}
           </Text>
         </View>
       );
     }
-    return (
-      <Text
-        style={[
-          textStyles.body,
-          { color: palette.textMuted, textAlign: 'center', paddingTop: space.gapLg },
-        ]}
-      >
-        {t('groups.searchEmpty')}
-      </Text>
-    );
+    return undefined;
   }, [
     filtered.length,
     groups.length,
+    homeTab,
     palette.textMuted,
     palette.textPrimary,
     palette.textSecondary,
+    query,
     t,
   ]);
 
-  const fabBottom = scrollBottomPadding + space.gapMd;
-
   return (
-    <SafeAreaView edges={['top']} style={[styles.safe, { backgroundColor: palette.background }]}>
+    <SafeAreaView
+      edges={['top']}
+      style={[styles.safe, { backgroundColor: palette.balancesCanvas }]}
+    >
       <FlatList
         data={filtered}
         keyExtractor={keyExtractor}
@@ -347,10 +411,11 @@ export function GroupsListHome({
         ListHeaderComponent={listHeader}
         ListEmptyComponent={emptyComponent}
         ItemSeparatorComponent={itemSeparator}
+        removeClippedSubviews={false}
         contentContainerStyle={{
-          paddingTop: space.gapMd,
-          paddingBottom: scrollBottomPadding + space.gapLg + size.touchMin,
-          paddingHorizontal: space.screenPaddingSm,
+          paddingTop: spacing['3'],
+          paddingBottom: scrollBottomPadding + spacing['10'],
+          paddingHorizontal: layoutGrid.inset,
           flexGrow: 1,
         }}
         showsVerticalScrollIndicator={false}
@@ -364,27 +429,6 @@ export function GroupsListHome({
           />
         }
       />
-
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t('groups.fabNewGroupA11y')}
-        accessibilityHint={t('groups.fabNewGroupHint')}
-        onPress={() => router.push(ROUTES.HOME_CREATE_GROUP)}
-        style={({ pressed }) => [
-          styles.fab,
-          {
-            backgroundColor: palette.textPrimary,
-            bottom: fabBottom,
-            opacity: pressed ? 0.88 : 1,
-            zIndex: zIndex.sticky,
-            elevation: Platform.OS === 'android' ? 6 : 0,
-          },
-        ]}
-      >
-        <Text style={[styles.fabLabel, { color: palette.background }]}>
-          {t('groups.fabNewGroup').toUpperCase()}
-        </Text>
-      </Pressable>
     </SafeAreaView>
   );
 }
@@ -401,7 +445,7 @@ export function GroupsHomeInitialLoading({
       edges={['top']}
       style={[
         styles.safe,
-        { backgroundColor: palette.background, paddingBottom: scrollBottomPadding },
+        { backgroundColor: palette.balancesCanvas, paddingBottom: scrollBottomPadding },
       ]}
     >
       <View style={styles.loadingBody}>
@@ -414,82 +458,94 @@ export function GroupsHomeInitialLoading({
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   loadingBody: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  topToolbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: space.gapMd,
-    minHeight: size.touchMin,
+  hubChromeRoot: {
+    paddingTop: spacing['1'],
+    paddingBottom: 0,
   },
-  topToolbarSpacer: {
-    flex: 1,
-  },
-  headerTitlesBlock: {
+  titleRow: {
     width: '100%',
-    marginBottom: space.gapMd,
-  },
-  hubMetaInline: {
-    ...textStyles.caption,
-    fontFamily: typography.fontFamily.sans.regular,
-    marginTop: space.gapSm,
-    lineHeight: typography.fontSize.sm * typography.lineHeight.relaxed,
-  },
-  searchShell: {
     flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: radius.xs,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: space.gapSm,
-    minHeight: spacing['6'],
-    marginBottom: space.gapMd,
+    alignItems: 'flex-start',
+    gap: spacing['3'],
+    marginTop: spacing['4'],
   },
-  searchIcon: { marginRight: space.gapSm },
-  searchInput: {
+  titleCopy: {
     flex: 1,
+    minWidth: 0,
+  },
+  titleProfileSlot: {
+    paddingTop: spacing['0.5'],
+  },
+  searchSlot: {
+    marginTop: spacing['8'],
+    alignSelf: 'stretch',
+  },
+  heroTitle: {
+    fontFamily: typography.fontFamily.sans.bold,
+    fontSize: typography.fontSize['5xl'],
+    fontWeight: typography.fontWeight.bold,
+    lineHeight: typography.fontSize['5xl'] * 0.96,
+  },
+  heroCaption: {
     fontFamily: typography.fontFamily.sans.regular,
     fontSize: typography.fontSize.sm,
-    paddingVertical: spacing['1'],
-    margin: 0,
+    fontWeight: typography.fontWeight.regular,
+    lineHeight: typography.fontSize.sm * typography.lineHeight.relaxed,
+    maxWidth: 520,
   },
   filterRow: {
     flexDirection: 'row',
-    alignItems: 'stretch',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: space.gapSm,
-    marginBottom: space.gapMd,
+    marginTop: spacing['5'],
+    marginBottom: spacing['7'],
   },
   filterHit: {
     flex: 1,
-    paddingVertical: space.gapSm,
-    paddingHorizontal: space.gapSm,
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    minWidth: 0,
   },
   filterLabel: {
     fontSize: typography.fontSize['2xs'],
-    letterSpacing: typography.letterSpacing.widest,
-    textAlign: 'center',
+    textAlign: 'left',
+    letterSpacing: typography.letterSpacing.tight,
+    width: '100%',
   },
-  filterUnderline: {
-    marginTop: space.gapSm,
-    alignSelf: 'stretch',
+  filterUnderlineTrack: {
+    alignItems: 'flex-start',
+    height: StyleSheet.hairlineWidth,
+    marginTop: spacing['1'],
+    width: '100%',
+  },
+  filterUnderlineBar: {
+    width: FILTER_UNDERLINE_PAD,
+    height: StyleSheet.hairlineWidth,
   },
   errorInline: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.gapMd,
     paddingVertical: space.gapSm,
-    marginBottom: space.gapSm,
+    marginTop: space.gapMd,
   },
-  fab: {
-    position: 'absolute',
-    right: space.screenPaddingSm,
-    paddingVertical: space.gapMd,
-    paddingHorizontal: space.gapMd,
-    borderRadius: radius.sm,
-    maxWidth: '88%',
+  errorBody: {
+    fontFamily: typography.fontFamily.sans.regular,
+    fontSize: typography.fontSize.sm,
   },
-  fabLabel: {
-    fontFamily: typography.fontFamily.mono.medium,
-    fontSize: typography.fontSize.xs,
+  errorRetry: {
+    fontFamily: typography.fontFamily.sans.medium,
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.medium,
+  },
+  emptyTitle: {
+    fontFamily: typography.fontFamily.sans.semiBold,
+    fontSize: typography.fontSize.md,
+    fontWeight: typography.fontWeight.semibold,
     letterSpacing: typography.letterSpacing.widest,
+  },
+  emptyBody: {
+    fontFamily: typography.fontFamily.sans.regular,
+    fontSize: typography.fontSize.base,
+    lineHeight: typography.fontSize.base * typography.lineHeight.relaxed,
   },
 });

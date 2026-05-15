@@ -1,8 +1,9 @@
 import { useFocusEffect } from '@react-navigation/native';
+import { useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { type ReactElement, useCallback, useMemo, useState } from 'react';
+import { type ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
@@ -11,51 +12,59 @@ import {
   Linking,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
+  StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ApiError } from '@/api';
-import { BackHeaderButton, Button } from '@/components/ui';
+import { BackHeaderButton } from '@/components/ui';
+import { useAuthMe } from '@/features/auth/hooks/useAuthMe';
 import { mapExpenseCommentError } from '@/features/expenses/api/expenseCommentsApi';
-import { mapExpenseReactionError } from '@/features/expenses/api/expenseReactionsApi';
 import { mapExpenseReceiptUploadError } from '@/features/expenses/api/expenseReceiptsApi';
 import {
   EXPENSE_COMMENT_CLIENT_CODES,
-  EXPENSE_COMMENT_MESSAGE_MAX_LENGTH,
   validateExpenseCommentMessage,
 } from '@/features/expenses/constants/expenseComment';
 import { EXPENSE_DETAIL_ERROR_CODES } from '@/features/expenses/constants/errorCodes';
-import { useAddExpenseComment } from '@/features/expenses/hooks/useAddExpenseComment';
-import { useAddExpenseReaction } from '@/features/expenses/hooks/useAddExpenseReaction';
+import { useCreateExpenseComment } from '@/features/expenses/hooks/useCreateExpenseComment';
+import {
+  ExpenseDetailPanels,
+  ExpenseDetailThreadComposer,
+  type ExpenseDetailPanelId,
+} from '@/features/expenses/components/expenseDetail/ExpenseDetailPanels';
+import { ExpenseDetailThreadList } from '@/features/expenses/components/expenseDetail/ExpenseDetailThreadList';
+import { ExpenseDetailScreenHeader } from '@/features/expenses/components/expenseDetail/ExpenseDetailScreenHeader';
+import { ExpenseDetailSegmentTabs } from '@/features/expenses/components/expenseDetail/ExpenseDetailSegmentTabs';
 import { useExpenseDetail } from '@/features/expenses/hooks/useExpenseDetail';
+import { expensesQueryKeys } from '@/features/expenses/queryKeys';
 import { useUploadExpenseReceipt } from '@/features/expenses/hooks/useUploadExpenseReceipt';
 import { expenseDetailScreenStyles as styles } from '@/features/expenses/screens/expenseDetailScreen.styles';
 import type { ExpenseDetail } from '@/features/expenses/types/expenseDetail.types';
-import {
-  expenseDetailAuthorSnippet,
-  expenseDetailBodyText,
-  expenseDetailHistoryLine,
-  expenseDetailTitleLine,
-} from '@/features/expenses/utils/expenseDetailDisplay';
-import { primaryTaxonomyLabel } from '@/features/expenses/utils/readExpenseStructuredWire';
+import type { GroupExpenseFeedItem } from '@/features/expenses/types/groupExpenseFeed.types';
 import { formatExpenseMajorAmount } from '@/features/expenses/utils/formatExpenseMajorAmount';
-import { formatGroupTimestamp } from '@/features/groups/utils/formatGroupTimestamp';
+import {
+  pickExpenseDetailNote,
+  pickExpenseDetailPaidBy,
+} from '@/features/expenses/utils/expenseDetailHeroMeta';
+import { buildExpenseDetailParticipantViews } from '@/features/expenses/utils/expenseDetailParticipantViews';
+import { parseExpenseCommentApiError } from '@/features/expenses/utils/expenseCommentApiErrors';
+import { resolveExpenseFeedCategoryVisual } from '@/features/expenses/utils/resolveExpenseFeedCategoryVisual';
+import { useGroupMemberProfile } from '@/features/groups/hooks/useGroupDetail';
+import { useGroupMembers } from '@/features/groups/hooks/useGroupMembers';
 import { isUuid } from '@/features/groups/utils/isUuid';
-import { radius, space, textStyles, typography, useThemeColors } from '@/theme';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { shareTextNative } from '@/services/shareNative';
+import { layoutGrid, spacing, textStyles, useThemeColors } from '@/theme';
 
 export type ExpenseDetailScreenProps = {
   expenseId: string;
   groupId: string;
   onBack: () => void;
 };
-
-type DetailPanel = 'overview' | 'thread' | 'files' | 'history';
-
-const QUICK_REACTIONS = ['👍', '❤️', '😂'] as const;
 
 function isExpenseNotFound(err: unknown): boolean {
   if (!(err instanceof ApiError)) {
@@ -69,34 +78,18 @@ function pickCreatedAtIso(detail: ExpenseDetail): string | undefined {
   return typeof raw === 'string' && raw.trim() !== '' ? raw : undefined;
 }
 
-function dedupeReactions(rows: Record<string, unknown>[]): Record<string, unknown>[] {
-  const seen = new Set<string>();
-  const out: Record<string, unknown>[] = [];
-  for (const row of rows) {
-    const uid = typeof row['userId'] === 'string' ? row['userId'] : '';
-    const emoji =
-      typeof row['emoji'] === 'string'
-        ? row['emoji']
-        : typeof row['title'] === 'string'
-          ? row['title']
-          : '';
-    const key = `${uid}\0${emoji}`;
-    if (!emoji) continue;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(row);
-  }
-  return out;
-}
-
-function pickAttachmentUrl(row: Record<string, unknown>): string | null {
-  const u =
-    typeof row['url'] === 'string'
-      ? row['url']
-      : typeof row['uri'] === 'string'
-        ? row['uri']
-        : null;
-  if (u && u.trim() !== '') return u;
+function resolveSplitTypeLabel(
+  detail: ExpenseDetail,
+  translate: (key: string) => string,
+): string | null {
+  const d = detail as Record<string, unknown>;
+  const raw = typeof d.splitType === 'string' ? d.splitType.trim().toLowerCase() : '';
+  if (raw === 'equal') return translate('expenses.add.splitEqual');
+  if (raw === 'custom' || raw === 'custom_amount') return translate('expenses.add.splitCustom');
+  if (raw === 'percent' || raw === 'percentage') return translate('expenses.add.splitPercent');
+  if (raw === 'shares' || raw === 'share') return translate('expenses.add.splitShares');
+  if (raw === 'adjust') return translate('expenses.add.splitAdjust');
+  if (raw !== '') return raw.replace(/_/g, ' ');
   return null;
 }
 
@@ -107,15 +100,25 @@ export function ExpenseDetailScreen({
 }: ExpenseDetailScreenProps): ReactElement {
   const { t } = useTranslation();
   const palette = useThemeColors();
-  const idOk = isUuid(expenseId);
-  const query = useExpenseDetail(idOk ? expenseId : undefined, { enabled: idOk });
-  const [panel, setPanel] = useState<DetailPanel>('overview');
+  const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
+  const idOk = expenseId.trim().length > 0;
+  const query = useExpenseDetail(idOk ? groupId : undefined, idOk ? expenseId : undefined, {
+    enabled: idOk,
+  });
+  const [panel, setPanel] = useState<ExpenseDetailPanelId>('overview');
   const [commentDraft, setCommentDraft] = useState('');
+  /** Bumped after a successful thread post so the list can reliably scrollToEnd once new rows layout. */
+  const [threadScrollToEndSignal, setThreadScrollToEndSignal] = useState(0);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [overviewPullRefreshing, setOverviewPullRefreshing] = useState(false);
 
-  const commentMutation = useAddExpenseComment(expenseId);
-  const reactionMutation = useAddExpenseReaction(expenseId);
-  const receiptMutation = useUploadExpenseReceipt(expenseId);
+  useEffect(() => {
+    setPanel('overview');
+  }, [groupId, expenseId]);
+
+  const commentMutation = useCreateExpenseComment(groupId, expenseId);
+  const receiptMutation = useUploadExpenseReceipt(groupId, expenseId);
 
   const { refetch } = query;
 
@@ -125,13 +128,77 @@ export function ExpenseDetailScreen({
     }, [refetch]),
   );
 
-  const groupMismatch =
-    query.data !== undefined && query.data.groupId !== groupId ? query.data.groupId : null;
+  const groupProfile = useGroupMemberProfile(idOk ? groupId : undefined);
+  const { data: me } = useAuthMe();
+  const meId = me?.id?.trim() ?? '';
+  const rosterQuery = useGroupMembers(idOk ? groupId : undefined, {
+    enabled: Boolean(idOk && isUuid(groupId.trim())),
+  });
+  const rosterDenied =
+    rosterQuery.isError &&
+    rosterQuery.error instanceof ApiError &&
+    rosterQuery.error.code === 'NOT_GROUP_MEMBER';
 
-  const dedupedReactions = useMemo(
-    () => (query.data ? dedupeReactions(query.data.reactions) : []),
-    [query.data],
-  );
+  const showEditButton = useMemo(() => {
+    if (rosterDenied) return false;
+    const roster = rosterQuery.data;
+    if (!roster) return true;
+    if (meId === '') return true;
+    return roster.some((m) => m.id === meId && m.status === 'active');
+  }, [meId, rosterDenied, rosterQuery.data]);
+
+  const { isOnline, isReady: netReady } = useNetworkStatus();
+  const actionsDisabled = netReady && !isOnline;
+
+  const groupTitle = groupProfile.data?.name?.trim() ?? '';
+  const groupSubtitleLoading =
+    !groupProfile.isError && groupProfile.data === undefined && groupProfile.isFetching;
+
+  const headerSummaryA11y = useMemo(() => {
+    const d = query.data;
+    if (!d) return '';
+    const titlePart = d.title.trim() || '—';
+    const amountPart = formatExpenseMajorAmount(d.amount, d.currency);
+    let groupPart = '';
+    if (groupSubtitleLoading) {
+      groupPart = t('expenses.detail.headerGroupLoadingA11y');
+    } else if (groupTitle !== '') {
+      groupPart = t('expenses.detail.headerGroupNamedA11y', { name: groupTitle });
+    }
+    const parts = [titlePart, amountPart];
+    if (groupPart !== '') parts.push(groupPart);
+    return parts.join('. ');
+  }, [groupSubtitleLoading, groupTitle, query.data, t]);
+
+  const handleEditExpense = useCallback(() => {
+    if (!idOk) return;
+    void Haptics.selectionAsync().catch(() => {});
+    router.push(
+      `/home/group/${encodeURIComponent(groupId)}/expense/${encodeURIComponent(expenseId)}/edit`,
+    );
+  }, [expenseId, groupId, idOk]);
+
+  const handleShareExpense = useCallback(() => {
+    const d = query.data;
+    if (!d) return;
+    void Haptics.selectionAsync().catch(() => {});
+    const amt = formatExpenseMajorAmount(d.amount, d.currency);
+    const gt = groupProfile.data?.name?.trim() ?? '';
+    const lines = [d.title.trim(), amt, gt !== '' ? gt : undefined].filter(Boolean);
+    void shareTextNative(lines.join('\n'), t('expenses.detail.shareDialogTitle'));
+  }, [groupProfile.data, query.data, t]);
+
+  const participantViews = useMemo(() => {
+    const d = query.data;
+    if (!d) return [];
+    return buildExpenseDetailParticipantViews(d, d.paidByUserId);
+  }, [query.data]);
+
+  const splitTypeLabel = useMemo(() => {
+    const d = query.data;
+    if (!d) return null;
+    return resolveSplitTypeLabel(d, (key: string) => t(key));
+  }, [query.data, t]);
 
   const onOpenUrl = useCallback(
     async (url: string): Promise<void> => {
@@ -148,44 +215,6 @@ export function ExpenseDetailScreen({
     [t],
   );
 
-  const renderLooseRows = (
-    rows: Record<string, unknown>[],
-    emptyKey: string,
-    renderPrimary: (row: Record<string, unknown>) => string | undefined,
-    renderSecondary?: (row: Record<string, unknown>) => string | undefined,
-  ): ReactElement => {
-    if (rows.length === 0) {
-      return (
-        <Text style={[textStyles.captionSmall, { color: palette.textMuted }]}>{t(emptyKey)}</Text>
-      );
-    }
-    return (
-      <View style={{ gap: space.gapSm, alignSelf: 'stretch' }}>
-        {rows.map((row, index) => {
-          const primary = renderPrimary(row);
-          const secondary = renderSecondary?.(row);
-          const key = `${index}-${primary ?? 'row'}`;
-          return (
-            <View
-              key={key}
-              style={[
-                styles.cardRow,
-                { borderColor: palette.groupHubBorder, backgroundColor: palette.groupHubCard },
-              ]}
-            >
-              {primary ? (
-                <Text style={[textStyles.body, { color: palette.textPrimary }]}>{primary}</Text>
-              ) : null}
-              {secondary ? (
-                <Text style={[styles.monoMeta, { color: palette.groupHubMuted }]}>{secondary}</Text>
-              ) : null}
-            </View>
-          );
-        })}
-      </View>
-    );
-  };
-
   const sendComment = useCallback(() => {
     const v = validateExpenseCommentMessage(commentDraft);
     if (!v.ok) {
@@ -201,30 +230,38 @@ export function ExpenseDetailScreen({
       {
         onSuccess: () => {
           setCommentDraft('');
+          setThreadScrollToEndSignal((n) => n + 1);
         },
         onError: (err) => {
-          const { titleKey, messageKey } = mapExpenseCommentError(err);
-          Alert.alert(t(titleKey), t(messageKey));
+          const p = parseExpenseCommentApiError(err);
+          if (p.kind === 'forbidden') {
+            Alert.alert(t('expenses.comments.errorTitle'), t('expenses.comments.forbiddenModify'));
+            return;
+          }
+          if (p.kind === 'invalid_parent') {
+            Alert.alert(t('expenses.comments.errorTitle'), t('expenses.comments.invalidParent'));
+            return;
+          }
+          if (p.kind === 'validation') {
+            Alert.alert(
+              t('expenses.comments.errorTitle'),
+              p.details?.[0] ?? t('expenses.comments.validationGeneric'),
+            );
+            return;
+          }
+          if (p.kind === 'expense_not_found') {
+            void queryClient.invalidateQueries({
+              queryKey: expensesQueryKeys.detail(groupId, expenseId),
+            });
+            Alert.alert(t('expenses.detail.notFoundTitle'), t('expenses.detail.notFoundBody'));
+            return;
+          }
+          const mapped = mapExpenseCommentError(err);
+          Alert.alert(t(mapped.titleKey), t(mapped.messageKey));
         },
       },
     );
-  }, [commentDraft, commentMutation, t]);
-
-  const addReaction = useCallback(
-    (emoji: string) => {
-      void Haptics.selectionAsync().catch(() => {});
-      reactionMutation.mutate(
-        { emoji },
-        {
-          onError: (err) => {
-            const { titleKey, messageKey } = mapExpenseReactionError(err);
-            Alert.alert(t(titleKey), t(messageKey));
-          },
-        },
-      );
-    },
-    [reactionMutation, t],
-  );
+  }, [commentDraft, commentMutation, groupId, expenseId, queryClient, t]);
 
   const pickAndUploadReceipt = useCallback(async () => {
     void Haptics.selectionAsync().catch(() => {});
@@ -260,7 +297,7 @@ export function ExpenseDetailScreen({
   if (!idOk) {
     return (
       <SafeAreaView edges={['top']} style={[styles.safe, { backgroundColor: palette.background }]}>
-        <View style={{ paddingHorizontal: space.screenPadding, flex: 1, gap: space.sectionGap }}>
+        <View style={styles.asyncShell}>
           <View style={styles.topRow}>
             <BackHeaderButton onPress={onBack} accessibilityLabel={t('common.backA11y')} />
           </View>
@@ -278,11 +315,11 @@ export function ExpenseDetailScreen({
   if (query.isPending) {
     return (
       <SafeAreaView edges={['top']} style={[styles.safe, { backgroundColor: palette.background }]}>
-        <View style={{ paddingHorizontal: space.screenPadding, flex: 1, gap: space.sectionGap }}>
+        <View style={styles.asyncShell}>
           <View style={styles.topRow}>
             <BackHeaderButton onPress={onBack} accessibilityLabel={t('common.backA11y')} />
           </View>
-          <ActivityIndicator color={palette.accent} style={{ marginTop: space.sectionGap }} />
+          <ActivityIndicator color={palette.accent} />
         </View>
       </SafeAreaView>
     );
@@ -291,7 +328,7 @@ export function ExpenseDetailScreen({
   if (query.isError && isExpenseNotFound(query.error)) {
     return (
       <SafeAreaView edges={['top']} style={[styles.safe, { backgroundColor: palette.background }]}>
-        <View style={{ paddingHorizontal: space.screenPadding, flex: 1, gap: space.sectionGap }}>
+        <View style={styles.asyncShell}>
           <View style={styles.topRow}>
             <BackHeaderButton onPress={onBack} accessibilityLabel={t('common.backA11y')} />
           </View>
@@ -309,7 +346,7 @@ export function ExpenseDetailScreen({
   if (query.isError) {
     return (
       <SafeAreaView edges={['top']} style={[styles.safe, { backgroundColor: palette.background }]}>
-        <View style={{ paddingHorizontal: space.screenPadding, flex: 1, gap: space.sectionGap }}>
+        <View style={styles.asyncShell}>
           <View style={styles.topRow}>
             <BackHeaderButton onPress={onBack} accessibilityLabel={t('common.backA11y')} />
           </View>
@@ -324,7 +361,7 @@ export function ExpenseDetailScreen({
             accessibilityLabel={t('expenses.detail.retryA11y')}
             onPress={() => void query.refetch()}
           >
-            <Text style={[textStyles.label, { color: palette.groupHubAccent }]}>
+            <Text style={[textStyles.label, { color: palette.accent }]}>
               {t('expenses.detail.retry')}
             </Text>
           </Pressable>
@@ -333,415 +370,235 @@ export function ExpenseDetailScreen({
     );
   }
 
-  const detail = query.data;
+  const detailLoaded = query.data;
+  if (detailLoaded !== undefined && detailLoaded.groupId.trim() !== groupId.trim()) {
+    return (
+      <SafeAreaView edges={['top']} style={[styles.safe, { backgroundColor: palette.background }]}>
+        <View style={styles.asyncShell}>
+          <View style={styles.topRow}>
+            <BackHeaderButton onPress={onBack} accessibilityLabel={t('common.backA11y')} />
+          </View>
+          <Text style={[textStyles.h3, { color: palette.textPrimary }]} accessibilityRole="header">
+            {t('expenses.detail.notFoundTitle')}
+          </Text>
+          <Text style={[textStyles.body, { color: palette.textSecondary }]}>
+            {t('expenses.detail.notFoundBody')}
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const detail = detailLoaded;
+  if (detail === undefined) {
+    return (
+      <SafeAreaView edges={['top']} style={[styles.safe, { backgroundColor: palette.background }]}>
+        <View style={styles.asyncShell}>
+          <View style={styles.topRow}>
+            <BackHeaderButton onPress={onBack} accessibilityLabel={t('common.backA11y')} />
+          </View>
+          <ActivityIndicator color={palette.accent} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   const amountLabel = formatExpenseMajorAmount(detail.amount, detail.currency);
   const createdIso = pickCreatedAtIso(detail);
-  const whenCreated = createdIso ? formatGroupTimestamp(createdIso, t) : null;
+  const categoryVisual = resolveExpenseFeedCategoryVisual(
+    detail as unknown as GroupExpenseFeedItem,
+  );
+  const paidSnippet = pickExpenseDetailPaidBy(detail);
+  const payerFallback = participantViews.find(
+    (p) => p.userId.trim().toLowerCase() === detail.paidByUserId.trim().toLowerCase(),
+  );
+  const paidByName =
+    paidSnippet.name.trim() ||
+    (payerFallback?.name ?? '').trim() ||
+    t('expenses.detail.memberFallback');
+  const paidByAvatarUrl = paidSnippet.avatarUrl ?? payerFallback?.avatarUrl ?? null;
+  const notesLine = pickExpenseDetailNote(detail);
 
-  const panels: { id: DetailPanel; label: string }[] = [
-    { id: 'overview', label: t('expenses.detail.panelOverview') },
-    { id: 'thread', label: t('expenses.detail.panelThread') },
-    { id: 'files', label: t('expenses.detail.panelFiles') },
-    { id: 'history', label: t('expenses.detail.panelHistory') },
+  const tabs = [
+    {
+      id: 'overview' as const,
+      label: t('expenses.detail.panelOverview'),
+      a11yLabel: t('expenses.detail.tabOverviewA11y'),
+    },
+    {
+      id: 'thread' as const,
+      label: t('expenses.detail.panelThread'),
+      a11yLabel: t('expenses.detail.tabThreadA11y'),
+    },
+    {
+      id: 'files' as const,
+      label: t('expenses.detail.panelFiles'),
+      a11yLabel: t('expenses.detail.tabFilesA11y'),
+    },
+    {
+      id: 'history' as const,
+      label: t('expenses.detail.panelHistory'),
+      a11yLabel: t('expenses.detail.tabHistoryA11y'),
+    },
   ];
 
   const uploadPct =
     uploadProgress === null ? null : Math.round(Math.min(1, Math.max(0, uploadProgress)) * 100);
 
+  const isThread = panel === 'thread';
+
+  const renderExpenseDetailHeaderBlock = (surfaceColor: string): ReactElement => (
+    <View
+      style={{
+        gap: layoutGrid.section,
+        backgroundColor: surfaceColor,
+        paddingBottom: layoutGrid.sm,
+      }}
+    >
+      <ExpenseDetailScreenHeader
+        actionsDisabled={actionsDisabled}
+        backA11y={t('common.backA11y')}
+        categoryVisual={categoryVisual}
+        editA11y={t('expenses.detail.editCtaA11y')}
+        groupSubtitleLoading={groupSubtitleLoading}
+        groupTitle={groupTitle}
+        headerSummaryA11y={headerSummaryA11y}
+        offlineActionHint={t('expenses.detail.offlineActionHint')}
+        shareA11y={t('expenses.detail.shareA11y')}
+        showEditButton={showEditButton}
+        title={detail.title}
+        titleMuted={panel === 'thread'}
+        onBack={onBack}
+        onEdit={handleEditExpense}
+        onShare={handleShareExpense}
+      />
+
+      <ExpenseDetailSegmentTabs active={panel} tabs={tabs} onChange={setPanel} />
+    </View>
+  );
+
   return (
-    <SafeAreaView edges={['top']} style={[styles.safe, { backgroundColor: palette.background }]}>
+    <SafeAreaView
+      edges={['top']}
+      style={[
+        styles.safe,
+        {
+          backgroundColor:
+            panel === 'thread' ? palette.expenseDetailThreadCanvas : palette.background,
+        },
+      ]}
+    >
       <KeyboardAvoidingView
-        style={styles.safe}
+        style={[
+          styles.safe,
+          {
+            backgroundColor:
+              panel === 'thread' ? palette.expenseDetailThreadCanvas : palette.background,
+          },
+        ]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={space.gapLg}
+        keyboardVerticalOffset={layoutGrid.inset}
       >
-        <ScrollView
-          contentContainerStyle={[styles.body, { paddingHorizontal: space.screenPadding }]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={[styles.topRow, { justifyContent: 'space-between', gap: space.gapMd }]}>
-            <BackHeaderButton onPress={onBack} accessibilityLabel={t('common.backA11y')} />
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('expenses.detail.editCtaA11y')}
-              onPress={() => {
-                void Haptics.selectionAsync().catch(() => {});
-                router.push(
-                  `/home/group/${encodeURIComponent(groupId)}/expense/${encodeURIComponent(expenseId)}/edit`,
-                );
-              }}
-              style={({ pressed }) => [{ opacity: pressed ? 0.72 : 1 }]}
+        <View style={{ flex: 1, position: 'relative' }}>
+          <View
+            style={[
+              styles.safe,
+              { flex: 1, zIndex: isThread ? 0 : 1 },
+              isThread && [
+                StyleSheet.absoluteFillObject,
+                { opacity: 0, pointerEvents: 'none' as const },
+              ],
+            ]}
+          >
+            <ScrollView
+              contentContainerStyle={styles.body}
+              keyboardShouldPersistTaps="handled"
+              stickyHeaderIndices={[0]}
+              refreshControl={
+                <RefreshControl
+                  colors={[palette.textSecondary]}
+                  refreshing={overviewPullRefreshing}
+                  tintColor={palette.textSecondary}
+                  onRefresh={() => {
+                    setOverviewPullRefreshing(true);
+                    void refetch().finally(() => {
+                      setOverviewPullRefreshing(false);
+                    });
+                  }}
+                />
+              }
+              showsVerticalScrollIndicator={false}
+              style={{ flex: 1 }}
             >
-              <Text style={[textStyles.label, { color: palette.groupHubAccent }]}>
-                {t('expenses.detail.editCta')}
-              </Text>
-            </Pressable>
+              {renderExpenseDetailHeaderBlock(palette.background)}
+              <ExpenseDetailPanels
+                amountLabel={amountLabel}
+                commentDraft={commentDraft}
+                commentMutation={commentMutation}
+                detail={detail}
+                notesLine={notesLine}
+                onCommentDraftChange={setCommentDraft}
+                onOpenAttachmentUrl={(url) => void onOpenUrl(url)}
+                onPickReceipt={() => void pickAndUploadReceipt()}
+                onSendComment={sendComment}
+                paidByAvatarUrl={paidByAvatarUrl}
+                paidByName={paidByName}
+                panel={panel}
+                participantViews={participantViews}
+                receiptMutation={receiptMutation}
+                recordedAtIso={createdIso}
+                splitTypeLabel={splitTypeLabel}
+                uploadPct={uploadPct}
+              />
+            </ScrollView>
           </View>
 
-          {groupMismatch ? (
-            <Text
-              style={[textStyles.captionSmall, { color: palette.warningText }]}
-              accessibilityLiveRegion="polite"
-            >
-              {t('expenses.detail.groupMismatch')}
-            </Text>
-          ) : null}
-
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: space.gapSm, paddingVertical: space.gapXs }}
+          <View
+            style={[
+              styles.safe,
+              { flex: 1, zIndex: isThread ? 1 : 0 },
+              !isThread && [
+                StyleSheet.absoluteFillObject,
+                { opacity: 0, pointerEvents: 'none' as const },
+              ],
+            ]}
           >
-            {panels.map((p) => {
-              const active = panel === p.id;
-              return (
-                <Pressable
-                  key={p.id}
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected: active }}
-                  onPress={() => setPanel(p.id)}
-                  style={{
-                    paddingVertical: space.gapSm,
-                    paddingHorizontal: space.gapMd,
-                    borderRadius: radius.full,
-                    borderWidth: 1,
-                    borderColor: active ? palette.accent : palette.borderSubtle,
-                    backgroundColor: active ? palette.accentSoft : palette.surfaceElevated,
-                  }}
-                >
-                  <Text style={[textStyles.captionSmall, { color: palette.textPrimary }]}>
-                    {p.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-
-          {panel === 'overview' ? (
-            <>
-              <View
-                style={[
-                  styles.heroBlock,
-                  { borderColor: palette.groupHubBorder, backgroundColor: palette.groupHubCard },
-                ]}
-              >
-                <Text
-                  style={[textStyles.h3, { color: palette.textPrimary }]}
-                  accessibilityRole="header"
-                >
-                  {detail.title}
-                </Text>
-                <Text
-                  style={[textStyles.bodyLarge, { color: palette.textPrimary, fontWeight: '600' }]}
-                >
-                  {amountLabel}
-                </Text>
-                <Text style={[styles.monoMeta, { color: palette.groupHubMuted }]}>
-                  {t('expenses.detail.expenseDate', { date: detail.date })}
-                </Text>
-                {whenCreated ? (
-                  <Text style={[styles.monoMeta, { color: palette.groupHubMuted }]}>
-                    {whenCreated}
-                  </Text>
-                ) : null}
-                <Text style={[styles.monoMeta, { color: palette.textMuted }]}>
-                  {t('expenses.detail.paidByLine', { id: detail.paidByUserId })}
-                </Text>
-              </View>
-
-              <View style={styles.section}>
-                <Text style={[styles.sectionKicker, { color: palette.groupHubMuted }]}>
-                  {t('expenses.detail.classificationSection')}
-                </Text>
-                {(() => {
-                  const d = detail as Record<string, unknown>;
-                  const taxonomy = primaryTaxonomyLabel(detail);
-                  const recurring = d.recurringDetected === true;
-                  const userClass = d.isUserClassified === true;
-                  const conf =
-                    typeof d.classificationConfidence === 'string'
-                      ? d.classificationConfidence.trim()
-                      : '';
-                  const src =
-                    typeof d.classificationSource === 'string' ? d.classificationSource.trim() : '';
-                  if (
-                    !taxonomy &&
-                    !recurring &&
-                    !conf &&
-                    !src &&
-                    d.isUserClassified === undefined
-                  ) {
-                    return (
-                      <Text style={[textStyles.captionSmall, { color: palette.textSecondary }]}>
-                        {t('expenses.detail.classificationEmpty')}
-                      </Text>
-                    );
-                  }
-                  return (
-                    <View style={{ gap: space.gapSm, alignSelf: 'stretch' }}>
-                      {taxonomy ? (
-                        <Text style={[textStyles.body, { color: palette.textPrimary }]}>
-                          {taxonomy}
-                        </Text>
-                      ) : null}
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.gapSm }}>
-                        <Text style={[styles.monoMeta, { color: palette.textMuted }]}>
-                          {userClass
-                            ? t('expenses.detail.userTagged')
-                            : t('expenses.detail.autoTagged')}
-                        </Text>
-                        {recurring ? (
-                          <Text style={[styles.monoMeta, { color: palette.textMuted }]}>
-                            {t('expenses.detail.recurringBadge')}
-                          </Text>
-                        ) : null}
-                      </View>
-                      {conf ? (
-                        <Text style={[styles.monoMeta, { color: palette.textMuted }]}>
-                          {t('expenses.detail.confidenceLine', { value: conf })}
-                        </Text>
-                      ) : null}
-                      {src ? (
-                        <Text style={[styles.monoMeta, { color: palette.textMuted }]}>
-                          {t('expenses.detail.sourceLine', { value: src })}
-                        </Text>
-                      ) : null}
-                    </View>
-                  );
-                })()}
-              </View>
-
-              <View style={styles.section}>
-                <Text style={[styles.sectionKicker, { color: palette.groupHubMuted }]}>
-                  {t('expenses.detail.participantsSection')}
-                </Text>
-                {renderLooseRows(
-                  detail.participants,
-                  'expenses.detail.emptyParticipants',
-                  (row) =>
-                    typeof row['userId'] === 'string'
-                      ? t('expenses.detail.participantUser', { id: row['userId'] })
-                      : typeof row['id'] === 'string'
-                        ? t('expenses.detail.participantUser', { id: row['id'] })
-                        : undefined,
-                  (row) => {
-                    const share =
-                      typeof row['share'] === 'string'
-                        ? row['share']
-                        : typeof row['amount'] === 'string'
-                          ? row['amount']
-                          : undefined;
-                    return share;
-                  },
-                )}
-              </View>
-            </>
-          ) : null}
-
-          {panel === 'thread' ? (
-            <>
-              <View style={styles.section}>
-                <Text style={[styles.sectionKicker, { color: palette.groupHubMuted }]}>
-                  {t('expenses.detail.reactionsSection')}
-                </Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.gapSm }}>
-                  {QUICK_REACTIONS.map((emoji) => (
-                    <Pressable
-                      key={emoji}
-                      accessibilityRole="button"
-                      accessibilityLabel={t('expenses.detail.reactionPickA11y', { emoji })}
-                      disabled={reactionMutation.isPending}
-                      onPress={() => addReaction(emoji)}
-                      style={{
-                        paddingVertical: space.gapSm,
-                        paddingHorizontal: space.gapMd,
-                        borderRadius: radius.md,
-                        borderWidth: 1,
-                        borderColor: palette.borderSubtle,
-                        backgroundColor: palette.groupHubCard,
-                      }}
-                    >
-                      <Text style={{ fontSize: typography.fontSize.xl }}>{emoji}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-                {renderLooseRows(
-                  dedupedReactions,
-                  'expenses.detail.emptyReactions',
-                  (row) => expenseDetailTitleLine(row) ?? expenseDetailHistoryLine(row),
-                  (row) =>
-                    expenseDetailAuthorSnippet(row['user'] ?? row['author']) ??
-                    (typeof row['userId'] === 'string' ? row['userId'] : undefined),
-                )}
-              </View>
-
-              <View style={styles.section}>
-                <Text style={[styles.sectionKicker, { color: palette.groupHubMuted }]}>
-                  {t('expenses.detail.commentsSection')}
-                </Text>
-                {renderLooseRows(
-                  detail.comments,
-                  'expenses.detail.emptyComments',
-                  (row) => {
-                    const body = expenseDetailBodyText(row);
-                    if (body) {
-                      return body;
-                    }
-                    return expenseDetailTitleLine(row);
-                  },
-                  (row) => {
-                    const author = row.author;
-                    const snippet = expenseDetailAuthorSnippet(author);
-                    if (snippet) {
-                      return t('expenses.detail.commentAuthor', { name: snippet });
-                    }
-                    if (typeof row['userId'] === 'string') {
-                      return t('expenses.detail.commentAuthorId', { id: row['userId'] });
-                    }
-                    return typeof row['createdAt'] === 'string'
-                      ? formatGroupTimestamp(row['createdAt'], t)
-                      : undefined;
-                  },
-                )}
-              </View>
-
-              <View style={{ gap: space.gapSm, alignSelf: 'stretch' }}>
-                <TextInput
-                  value={commentDraft}
-                  onChangeText={(tx) =>
-                    setCommentDraft(tx.slice(0, EXPENSE_COMMENT_MESSAGE_MAX_LENGTH))
-                  }
-                  placeholder={t('expenses.detail.commentPlaceholder')}
-                  placeholderTextColor={palette.textMuted}
-                  multiline
-                  accessibilityLabel={t('expenses.detail.commentPlaceholder')}
-                  style={{
-                    minHeight: 88,
-                    borderWidth: 1,
-                    borderColor: palette.borderSubtle,
-                    borderRadius: radius.md,
-                    padding: space.gapMd,
-                    color: palette.textPrimary,
-                    fontFamily: typography.fontFamily.sans.regular,
-                    textAlignVertical: 'top',
-                  }}
-                />
-                <Button
-                  label={t('expenses.detail.commentSend')}
-                  variant="accent"
-                  onPress={sendComment}
-                  disabled={commentMutation.isPending || commentDraft.trim() === ''}
-                  loading={commentMutation.isPending}
-                  trailing="none"
-                  labelCase="none"
-                  accessibilityLabel={t('expenses.detail.commentSendA11y')}
-                />
-              </View>
-            </>
-          ) : null}
-
-          {panel === 'files' ? (
-            <View style={styles.section}>
-              <Text style={[styles.sectionKicker, { color: palette.groupHubMuted }]}>
-                {t('expenses.detail.attachmentsSection')}
-              </Text>
-              {detail.attachments.length === 0 ? (
-                <Text style={[textStyles.captionSmall, { color: palette.textMuted }]}>
-                  {t('expenses.detail.emptyAttachments')}
-                </Text>
-              ) : (
-                <View style={{ gap: space.gapSm, alignSelf: 'stretch' }}>
-                  {detail.attachments.map((row, index) => {
-                    const url = pickAttachmentUrl(row);
-                    const label =
-                      expenseDetailTitleLine(row) ??
-                      (url ? url.slice(0, 48) : t('expenses.detail.attachmentOpenA11y'));
-                    const typeLabel =
-                      typeof row['type'] === 'string'
-                        ? row['type']
-                        : typeof row['mimeType'] === 'string'
-                          ? row['mimeType']
-                          : undefined;
-                    return (
-                      <Pressable
-                        key={`${index}-${url ?? label}`}
-                        accessibilityRole="link"
-                        accessibilityHint={t('expenses.detail.attachmentOpenHint')}
-                        accessibilityLabel={t('expenses.detail.attachmentOpenA11y')}
-                        disabled={!url}
-                        onPress={() => {
-                          if (url) void onOpenUrl(url);
-                        }}
-                        style={({ pressed }) => [{ opacity: !url || pressed ? 0.65 : 1 }]}
-                      >
-                        <View
-                          style={[
-                            styles.cardRow,
-                            {
-                              borderColor: palette.groupHubBorder,
-                              backgroundColor: palette.groupHubCard,
-                            },
-                          ]}
-                        >
-                          <Text style={[textStyles.body, { color: palette.groupHubAccent }]}>
-                            {label}
-                          </Text>
-                          {typeLabel ? (
-                            <Text style={[styles.monoMeta, { color: palette.groupHubMuted }]}>
-                              {typeLabel}
-                            </Text>
-                          ) : null}
-                        </View>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              )}
-
-              <View style={{ marginTop: space.gapLg, gap: space.gapSm }}>
-                {uploadPct !== null ? (
-                  <Text style={[textStyles.captionSmall, { color: palette.textMuted }]}>
-                    {t('expenses.receiptsUpload.progressLabel', { pct: uploadPct })}
-                  </Text>
-                ) : null}
-                <Button
-                  label={
-                    receiptMutation.isPending && uploadPct !== null
-                      ? t('expenses.receiptsUpload.progressLabel', { pct: uploadPct })
-                      : t('expenses.detail.receiptPick')
-                  }
-                  variant="secondary"
-                  onPress={() => void pickAndUploadReceipt()}
-                  disabled={receiptMutation.isPending}
-                  loading={receiptMutation.isPending}
-                  trailing="none"
-                  labelCase="none"
-                  accessibilityLabel={t('expenses.detail.receiptPickA11y')}
-                />
-              </View>
+            <View
+              style={{
+                flexShrink: 0,
+                paddingTop: layoutGrid.sm,
+                paddingHorizontal: layoutGrid.inset,
+              }}
+            >
+              {renderExpenseDetailHeaderBlock(palette.expenseDetailThreadCanvas)}
             </View>
-          ) : null}
-
-          {panel === 'history' ? (
-            <View style={styles.section}>
-              <Text style={[styles.sectionKicker, { color: palette.groupHubMuted }]}>
-                {t('expenses.detail.historySection')}
-              </Text>
-              {renderLooseRows(
-                detail.history,
-                'expenses.detail.emptyHistory',
-                (row) => expenseDetailHistoryLine(row) ?? expenseDetailTitleLine(row),
-                (row) =>
-                  typeof row['createdAt'] === 'string'
-                    ? formatGroupTimestamp(row['createdAt'], t)
-                    : typeof row['at'] === 'string'
-                      ? formatGroupTimestamp(row['at'], t)
-                      : undefined,
-              )}
+            <ExpenseDetailThreadList
+              expenseId={expenseId}
+              fetchEnabled={isThread}
+              groupId={groupId}
+              scrollToEndSignal={threadScrollToEndSignal}
+            />
+            <View
+              style={[
+                styles.threadComposerStickyOuter,
+                {
+                  backgroundColor: palette.expenseDetailThreadCanvas,
+                  borderTopColor: palette.threadComposerBorder,
+                  paddingHorizontal: spacing['4'],
+                  paddingTop: spacing['3'],
+                  paddingBottom: Math.max(insets.bottom + spacing['2.5'], spacing['3']),
+                },
+              ]}
+            >
+              <ExpenseDetailThreadComposer
+                commentDraft={commentDraft}
+                commentMutation={commentMutation}
+                onCommentDraftChange={setCommentDraft}
+                onSendComment={sendComment}
+              />
             </View>
-          ) : null}
-        </ScrollView>
+          </View>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

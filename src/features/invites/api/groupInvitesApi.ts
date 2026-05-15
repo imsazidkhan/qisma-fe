@@ -2,6 +2,10 @@ import { z } from 'zod';
 
 import { ApiError, apiFetch, CLIENT_ERROR_CODES, ENDPOINTS } from '@/api';
 import { GROUP_TYPE_ORDER, type GroupTypeId } from '@/features/groups/constants/groupTypes';
+import {
+  GROUP_MEMBER_ROLES,
+  type GroupMemberRole,
+} from '@/features/groups/types/groupMember.types';
 import { isUuid } from '@/features/groups/utils/isUuid';
 
 import type { GroupInviteInboxItem } from '@/features/invites/types/groupInviteInbox.types';
@@ -41,7 +45,13 @@ const inboxItemSchema = z
     role: z
       .union([z.string(), z.null()])
       .optional()
-      .transform((v) => (v == null ? null : typeof v === 'string' ? v.trim() || null : null)),
+      .transform((v): GroupMemberRole | null => {
+        if (v == null || typeof v !== 'string') return null;
+        const r = v.trim().toLowerCase();
+        return (GROUP_MEMBER_ROLES as readonly string[]).includes(r)
+          ? (r as GroupMemberRole)
+          : null;
+      }),
     memberCount: z
       .union([z.number(), z.null()])
       .optional()

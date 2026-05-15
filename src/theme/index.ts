@@ -26,10 +26,12 @@ export {
   type Typography,
 } from './typography';
 export {
+  layoutGrid,
   size,
   space,
   spacing,
   zIndex,
+  type LayoutGrid,
   type Size,
   type Space,
   type Spacing,

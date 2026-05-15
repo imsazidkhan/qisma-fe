@@ -22,18 +22,11 @@ function resolvedParam(value: string | string[] | undefined): string {
 export default function HomeGroupMembersRoute(): ReactElement {
   const { t } = useTranslation();
   const palette = useThemeColors();
-  const {
-    groupId: rawId,
-    userId: rawInviteUserId,
-    openAdd: rawOpenAdd,
-  } = useLocalSearchParams<{
+  const { groupId: rawId, openAdd: rawOpenAdd } = useLocalSearchParams<{
     groupId: string | string[];
-    userId?: string | string[];
     openAdd?: string | string[];
   }>();
   const groupId = resolvedParam(rawId);
-  const inviteUserIdParam = resolvedParam(rawInviteUserId);
-  const inviteUserId = isUuid(inviteUserIdParam) ? inviteUserIdParam : undefined;
   const openAddParam = resolvedParam(rawOpenAdd);
   const openAddInitially = openAddParam === '1' || openAddParam.toLowerCase() === 'true';
 
@@ -41,17 +34,14 @@ export default function HomeGroupMembersRoute(): ReactElement {
 
   useEffect(() => {
     deepLinkAddRef.current = false;
-  }, [groupId, inviteUserId, openAddInitially]);
+  }, [groupId, openAddInitially]);
 
   useEffect(() => {
     if (!isUuid(groupId) || deepLinkAddRef.current) return;
-    if (!inviteUserId && !openAddInitially) return;
+    if (!openAddInitially) return;
     deepLinkAddRef.current = true;
-    const q = new URLSearchParams();
-    if (inviteUserId) q.set('userId', inviteUserId);
-    const suffix = q.toString() ? `?${q.toString()}` : '';
-    router.replace(`/home/group/${groupId}/add-members${suffix}`);
-  }, [groupId, inviteUserId, openAddInitially]);
+    router.replace(`/home/group/${groupId}/add-members`);
+  }, [groupId, openAddInitially]);
 
   const onBack = useCallback(() => {
     if (router.canGoBack()) {

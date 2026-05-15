@@ -9,14 +9,18 @@ export type UseExpenseDetailOptions = {
 };
 
 export function useExpenseDetail(
+  groupId: string | undefined,
   expenseId: string | undefined,
   options?: UseExpenseDetailOptions,
 ): UseQueryResult<ExpenseDetail, Error> {
-  const enabled = Boolean(expenseId) && (options?.enabled ?? true);
+  const gid = groupId?.trim() ?? '';
+  const eid = expenseId?.trim() ?? '';
+  const baseEnabled = gid.length > 0 && eid.length > 0;
+  const enabled = baseEnabled && (options?.enabled ?? true);
 
   return useQuery({
-    queryKey: expensesQueryKeys.detail(expenseId ?? ''),
-    queryFn: ({ signal }) => fetchExpenseDetail(expenseId as string, signal),
+    queryKey: expensesQueryKeys.detail(gid, eid),
+    queryFn: ({ signal }) => fetchExpenseDetail(gid, eid, signal),
     enabled,
   });
 }

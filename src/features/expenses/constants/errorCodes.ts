@@ -8,6 +8,8 @@ export type ExpenseFeedErrorCode =
 export const EXPENSE_DETAIL_ERROR_CODES = {
   /** Soft-deleted or unknown expense — API may return 404 with this code. */
   EXPENSE_NOT_FOUND: 'EXPENSE_NOT_FOUND',
+  /** `expectedUpdatedAt` did not match current `updatedAt`. */
+  EXPENSE_STALE_VERSION: 'EXPENSE_STALE_VERSION',
 } as const;
 
 export type ExpenseDetailErrorCode =

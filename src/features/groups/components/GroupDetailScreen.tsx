@@ -60,8 +60,14 @@ import {
   stableExpenseFeedFiltersKey,
   type GroupExpenseFeedItem,
 } from '@/features/expenses';
+import {
+  readExpenseFeedPaidByDisplayName,
+  readExpenseFeedPaidByUserId,
+} from '@/features/expenses/utils/expenseFeedRowFormat';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
-import { platformShadow, space, textStyles, useThemeColors, useThemeMode } from '@/theme';
+import { platformShadow, space, spacing, textStyles, useThemeColors, useThemeMode } from '@/theme';
+
+const HUB_LEDGER_SCREEN_PAD_X = spacing['5'];
 
 const OVERFLOW_MENU_WIDTH = 228;
 const HERO_MEMBER_FACE_CAP = 2;
@@ -93,6 +99,26 @@ export function GroupDetailScreen({
   const rosterQuery = useGroupMembers(group.id, { enabled: fetchMembersRoster });
   const rosterList = useMemo(() => rosterQuery.data ?? [], [rosterQuery.data]);
   const rosterPending = fetchMembersRoster && rosterQuery.isPending;
+
+  const memberAvatarById = useMemo(() => {
+    const map = new Map<string, string | null>();
+    for (const row of rosterList) {
+      map.set(row.id, row.avatar ?? null);
+    }
+    return map;
+  }, [rosterList]);
+
+  const memberDisplayById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const row of rosterList) {
+      const identifier = typeof row.identifier === 'string' ? row.identifier.trim() : '';
+      const label = row.name?.trim() || row.username?.trim() || identifier || '';
+      if (label) {
+        map.set(row.id, label);
+      }
+    }
+    return map;
+  }, [rosterList]);
 
   const { isOnline, isReady } = useNetworkStatus();
   const offlineInvite = !fetchMembersRoster && isReady && !isOnline;
@@ -242,15 +268,37 @@ export function GroupDetailScreen({
 
   type BalanceCardTone = 'settled' | 'owed_to_you' | 'you_owe' | 'preview';
 
+  const balanceSnapshotPending =
+    fetchMembersRoster && viewerPayload === undefined && balancesQuery.isPending;
+  const balanceSnapshotFailed =
+    fetchMembersRoster && viewerPayload === undefined && balancesQuery.isError;
+
   const balanceCard = useMemo((): { label: string; tone: BalanceCardTone } => {
     if (!fetchMembersRoster) {
       return { label: t('groups.detail.hubBalancePreviewHint'), tone: 'preview' };
+    }
+    if (balanceSnapshotPending) {
+      return { label: t('groups.detail.hubBalanceLoadingPrimary'), tone: 'preview' };
+    }
+    if (balanceSnapshotFailed) {
+      return { label: t('groups.detail.hubBalanceErrorPrimary'), tone: 'preview' };
     }
     if (viewerPayload) {
       const s = viewerPayload.summary;
       const tone: BalanceCardTone =
         s.status === 'settled' ? 'settled' : s.status === 'you_owe' ? 'you_owe' : 'owed_to_you';
-      return { label: s.displayText, tone };
+      const serverLabel = s.displayText.trim();
+      if (serverLabel.length > 0) {
+        return { label: serverLabel, tone };
+      }
+      if (tone === 'settled') {
+        return { label: t('groups.balance.settled'), tone: 'settled' };
+      }
+      const amt = formatMinorAsCurrency(s.netAmount, s.currency);
+      if (tone === 'owed_to_you') {
+        return { label: t('groups.balance.owedToYou', { amount: amt }), tone: 'owed_to_you' };
+      }
+      return { label: t('groups.balance.youOwe', { amount: amt }), tone: 'you_owe' };
     }
     const { tone, amountMinor, currency } = balance;
     if (tone === 'settled') {
@@ -261,12 +309,38 @@ export function GroupDetailScreen({
       return { label: t('groups.balance.owedToYou', { amount: amt }), tone: 'owed_to_you' };
     }
     return { label: t('groups.balance.youOwe', { amount: amt }), tone: 'you_owe' };
-  }, [balance, fetchMembersRoster, t, viewerPayload]);
+  }, [
+    balance,
+    balanceSnapshotFailed,
+    balanceSnapshotPending,
+    fetchMembersRoster,
+    t,
+    viewerPayload,
+  ]);
 
   const balanceHeroModel = useMemo(() => {
     if (!fetchMembersRoster) {
       return null;
     }
+
+    if (balanceSnapshotPending) {
+      return {
+        variant: 'settled' as const,
+        eyebrow: t('groups.detail.hubBalanceLoadingEyebrow'),
+        amountStr: t('groups.detail.hubBalanceLoadingPrimary'),
+        activeBalanceFootline: undefined,
+      };
+    }
+
+    if (balanceSnapshotFailed) {
+      return {
+        variant: 'settled' as const,
+        eyebrow: t('groups.detail.hubBalanceErrorEyebrow'),
+        amountStr: t('groups.detail.hubBalanceErrorPrimary'),
+        activeBalanceFootline: undefined,
+      };
+    }
+
     const tone = balanceCard.tone;
 
     const currency = viewerPayload?.summary.currency ?? balance.currency;
@@ -303,7 +377,15 @@ export function GroupDetailScreen({
       amountStr,
       activeBalanceFootline,
     };
-  }, [balance, balanceCard.tone, fetchMembersRoster, t, viewerPayload]);
+  }, [
+    balance,
+    balanceCard.tone,
+    balanceSnapshotFailed,
+    balanceSnapshotPending,
+    fetchMembersRoster,
+    t,
+    viewerPayload,
+  ]);
 
   const onHubRefresh = useCallback(() => {
     void Promise.all([balancesQuery.refetch(), expenseFeed.refetch()]);
@@ -382,7 +464,7 @@ export function GroupDetailScreen({
       h: number,
     ): { top: number; left: number } => {
       const winW = Dimensions.get('window').width;
-      const pad = space.screenPaddingLg;
+      const pad = HUB_LEDGER_SCREEN_PAD_X;
       const left = Math.max(
         pad,
         Math.min(x + w - OVERFLOW_MENU_WIDTH, winW - OVERFLOW_MENU_WIDTH - pad),
@@ -522,15 +604,45 @@ export function GroupDetailScreen({
     });
   }, [closeMenu, onMembersPress]);
 
+  const payerAvatarForFeedItem = useCallback(
+    (feedItem: GroupExpenseFeedItem) => {
+      const pid = readExpenseFeedPaidByUserId(feedItem);
+      if (!pid) return null;
+      return memberAvatarById.get(pid) ?? null;
+    },
+    [memberAvatarById],
+  );
+
+  const payerDisplayForFeedItem = useCallback(
+    (item: GroupExpenseFeedItem) => {
+      const pid = readExpenseFeedPaidByUserId(item);
+      const rosterName = pid ? memberDisplayById.get(pid) : undefined;
+      const trimmed = rosterName?.trim();
+      return trimmed !== undefined && trimmed !== ''
+        ? trimmed
+        : (readExpenseFeedPaidByDisplayName(item) ?? null);
+    },
+    [memberDisplayById],
+  );
+
   const renderExpenseItem = useCallback<ListRenderItem<GroupExpenseFeedItem>>(
-    ({ item }) => <GroupExpenseFeedRow groupId={group.id} item={item} t={t} />,
-    [group.id, t],
+    ({ item }) => (
+      <GroupExpenseFeedRow
+        currentUserId={me?.id ?? null}
+        groupId={group.id}
+        item={item}
+        payerAvatarUrl={payerAvatarForFeedItem(item)}
+        payerDisplayName={payerDisplayForFeedItem(item)}
+        t={t}
+      />
+    ),
+    [group.id, me?.id, payerAvatarForFeedItem, payerDisplayForFeedItem, t],
   );
 
   const expenseKeyExtractor = useCallback((item: GroupExpenseFeedItem) => item.id, []);
 
   const ExpenseSeparator = useCallback(function ExpenseSeparator(): ReactElement {
-    return <View style={{ height: space.gapMd }} />;
+    return <View style={{ height: 0 }} />;
   }, []);
 
   const hubHeaderElement = useMemo(
@@ -563,8 +675,8 @@ export function GroupDetailScreen({
             const chromeStyle = [
               styles.hubNavBarBlur,
               {
-                marginHorizontal: -space.screenPaddingLg,
-                paddingHorizontal: space.screenPaddingLg,
+                marginHorizontal: -HUB_LEDGER_SCREEN_PAD_X,
+                paddingHorizontal: HUB_LEDGER_SCREEN_PAD_X,
                 borderBottomColor: palette.groupHubBorder,
               },
             ];
@@ -1032,7 +1144,12 @@ export function GroupDetailScreen({
 
             <View style={[styles.sectionRule, { backgroundColor: palette.groupHubBorder }]} />
             <View style={{ alignSelf: 'stretch', gap: space.gapMd }}>
-              <Text style={[styles.sectionKicker, { color: palette.groupHubMuted }]}>
+              <Text
+                style={[
+                  styles.expenseLedgerSectionTitle,
+                  { color: palette.expenseLedgerSectionInk },
+                ]}
+              >
                 {t('groups.detail.hubReceiptsSection')}
               </Text>
               {expenseFeed.isError ? (
@@ -1146,10 +1263,9 @@ export function GroupDetailScreen({
       palette.groupHubBorder,
       palette.groupHubCard,
       palette.groupHubMuted,
-      palette.overlayStrong,
+      palette.expenseLedgerSectionInk,
       palette.surfaceElevated,
       palette.textMuted,
-      palette.textOnAccent,
       palette.textPrimary,
       palette.textSecondary,
       palette.warningText,
@@ -1208,6 +1324,7 @@ export function GroupDetailScreen({
       <View style={[styles.mainColumn, { backgroundColor: palette.groupHubBackground }]}>
         <FlashList<GroupExpenseFeedItem>
           data={fetchMembersRoster ? expenseItems : []}
+          estimatedItemSize={212}
           keyExtractor={expenseKeyExtractor}
           renderItem={renderExpenseItem}
           ListHeaderComponent={() => hubHeaderElement}
@@ -1236,7 +1353,7 @@ export function GroupDetailScreen({
           contentContainerStyle={StyleSheet.flatten([
             styles.scroll,
             {
-              paddingHorizontal: space.screenPaddingLg,
+              paddingHorizontal: HUB_LEDGER_SCREEN_PAD_X,
               paddingBottom: hubScrollBottomPadding,
             },
           ])}
@@ -1256,7 +1373,7 @@ export function GroupDetailScreen({
             styles.expenseFabAnchor,
             {
               paddingBottom: expenseFabBottomOffset,
-              paddingEnd: space.screenPaddingLg,
+              paddingEnd: HUB_LEDGER_SCREEN_PAD_X,
             },
           ]}
         >

@@ -1,13 +1,18 @@
+import { FlashList } from '@shopify/flash-list';
 import { useFocusEffect } from '@react-navigation/native';
 import type { ReactElement } from 'react';
-import { useCallback } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FlatList, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError } from '@/api';
 import { Button } from '@/components/ui';
+import { DotMatrixField } from '@/features/invites/components/DotMatrixField';
+import { InvitesEmptyState } from '@/features/invites/components/InvitesEmptyState';
 import { InvitesInboxCard } from '@/features/invites/components/InvitesInboxCard';
+import type { InvitesInboxTab } from '@/features/invites/components/InvitesInboxSegments';
+import { InvitesInboxSegments } from '@/features/invites/components/InvitesInboxSegments';
 import { InvitesInboxSkeleton } from '@/features/invites/components/InvitesInboxSkeleton';
 import { useGroupInvitesInbox } from '@/features/invites/hooks/useGroupInvitesInbox';
 import type { GroupInviteInboxItem } from '@/features/invites/types/groupInviteInbox.types';
@@ -15,10 +20,6 @@ import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { space, textStyles, useThemeColors } from '@/theme';
 
 export type InvitesInboxScreenProps = {
-  /**
-   * `fullscreen` — own top safe area (legacy tab layout).
-   * `embedded` — parent provides safe area + chrome (home stack).
-   */
   presentation?: 'fullscreen' | 'embedded';
 };
 
@@ -41,7 +42,7 @@ function ScreenWrap(props: {
 }
 
 /**
- * Inbox UI for pending group invites (`GET /v1/users/me/group-invites` via {@link useGroupInvitesInbox}).
+ * Pending group invites — `GET /v1/users/me/group-invites`.
  */
 export function InvitesInboxScreen({
   presentation = 'fullscreen',
@@ -49,6 +50,7 @@ export function InvitesInboxScreen({
   const { t } = useTranslation();
   const palette = useThemeColors();
   const { isOnline, isReady } = useNetworkStatus();
+  const [inboxTab, setInboxTab] = useState<InvitesInboxTab>('pending');
   const {
     data,
     isPending,
@@ -76,9 +78,80 @@ export function InvitesInboxScreen({
 
   const renderItem = useCallback(
     ({ item }: { item: GroupInviteInboxItem }) => (
-      <InvitesInboxCard item={item} offline={!isOnline} />
+      <View style={{ marginBottom: space.gapLg }}>
+        <InvitesInboxCard item={item} offline={!isOnline} />
+      </View>
     ),
     [isOnline],
+  );
+
+  const headerNode = useMemo(
+    () => (
+      <View style={{ gap: space.gapMd, marginBottom: space.gapLg }}>
+        {showOfflineBanner ? (
+          <Text
+            style={[textStyles.caption, { color: palette.warningText }]}
+            accessibilityLiveRegion="polite"
+          >
+            {t('invites.offlineBanner')}
+          </Text>
+        ) : null}
+        <DotMatrixField height={48} rows={4} columns={14} />
+        <View style={styles.titleRow}>
+          <Text
+            style={[textStyles.h1, { color: palette.textPrimary, flex: 1 }]}
+            accessibilityRole="header"
+          >
+            {t('invites.title')}
+          </Text>
+          {list.length > 0 ? (
+            <View
+              style={[
+                styles.badge,
+                {
+                  borderColor: palette.borderFrost,
+                  backgroundColor: palette.surfaceFloating,
+                },
+              ]}
+              accessibilityLabel={t('invites.headerBadgeA11y', { count: list.length })}
+            >
+              <Text
+                style={[
+                  textStyles.labelSmall,
+                  { fontVariant: ['tabular-nums'], color: palette.textPrimary },
+                ]}
+              >
+                {list.length > 99 ? '99+' : String(list.length)}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+        <Text style={[textStyles.caption, { color: palette.textSecondary }]}>
+          {inboxTab === 'pending'
+            ? t('invites.segmentPendingSubtitle')
+            : t('invites.segmentAllSubtitle')}
+        </Text>
+        <InvitesInboxSegments
+          value={inboxTab}
+          onChange={setInboxTab}
+          pendingBadgeCount={list.length}
+          pendingLabel={t('invites.segmentPending')}
+          allLabel={t('invites.segmentAll')}
+          accessibilityHint={t('invites.segmentsA11y')}
+        />
+      </View>
+    ),
+    [
+      inboxTab,
+      list.length,
+      palette.borderFrost,
+      palette.surfaceFloating,
+      palette.textPrimary,
+      palette.textSecondary,
+      palette.warningText,
+      showOfflineBanner,
+      t,
+    ],
   );
 
   if (showInitialLoader) {
@@ -154,28 +227,11 @@ export function InvitesInboxScreen({
             />
           }
         >
-          {showOfflineBanner ? (
-            <Text
-              style={[
-                textStyles.caption,
-                { color: palette.warningText, marginBottom: space.gapMd },
-              ]}
-              accessibilityLiveRegion="polite"
-            >
-              {t('invites.offlineBanner')}
-            </Text>
-          ) : null}
-          <Text style={[textStyles.h2, { color: palette.textPrimary }]} accessibilityRole="header">
-            {t('invites.title')}
-          </Text>
-          <Text
-            style={[textStyles.body, { color: palette.textSecondary, marginTop: space.sectionGap }]}
-          >
-            {t('invites.emptyTitle')}
-          </Text>
-          <Text style={[textStyles.body, { color: palette.textMuted, marginTop: space.gapMd }]}>
-            {t('invites.emptyBody')}
-          </Text>
+          {headerNode}
+          <InvitesEmptyState
+            offline={showOfflineBanner}
+            onRetry={showOfflineBanner ? onRetry : undefined}
+          />
         </ScrollView>
       </ScreenWrap>
     );
@@ -183,11 +239,11 @@ export function InvitesInboxScreen({
 
   return (
     <ScreenWrap presentation={presentation} style={{ paddingTop: space.gapMd }}>
-      <FlatList
-        style={{ flex: 1 }}
+      <FlashList
         data={list}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
+        ListHeaderComponent={headerNode}
         refreshControl={
           <RefreshControl
             refreshing={isFetching && !isPending}
@@ -199,28 +255,24 @@ export function InvitesInboxScreen({
           paddingHorizontal: space.screenPadding,
           paddingBottom: space.sectionGapLg,
         }}
-        ListHeaderComponent={
-          <View style={{ marginBottom: space.gapMd }}>
-            {showOfflineBanner ? (
-              <Text
-                style={[
-                  textStyles.caption,
-                  { color: palette.warningText, marginBottom: space.gapMd },
-                ]}
-                accessibilityLiveRegion="polite"
-              >
-                {t('invites.offlineBanner')}
-              </Text>
-            ) : null}
-            <Text
-              style={[textStyles.h2, { color: palette.textPrimary }]}
-              accessibilityRole="header"
-            >
-              {t('invites.title')}
-            </Text>
-          </View>
-        }
       />
     </ScreenWrap>
   );
 }
+
+const styles = StyleSheet.create({
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.gapMd,
+  },
+  badge: {
+    minWidth: 36,
+    paddingHorizontal: space.gapSm,
+    paddingVertical: space.gapXs,
+    borderRadius: 9999,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

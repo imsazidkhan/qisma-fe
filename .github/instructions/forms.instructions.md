@@ -1,6 +1,6 @@
 ---
-description: "Use when building forms, input screens, or any screen with user input fields. Covers React Hook Form, Zod validation, keyboard handling, and submit patterns."
-applyTo: ["**/*Form*.tsx", "**/screens/**/*.tsx", "src/app/**/*.tsx"]
+description: 'Use when building forms, input screens, or any screen with user input fields. Covers React Hook Form, Zod validation, keyboard handling, and submit patterns.'
+applyTo: ['**/*Form*.tsx', '**/screens/**/*.tsx', 'src/app/**/*.tsx']
 ---
 
 # Forms & Input Rules
@@ -35,10 +35,7 @@ const { success, error } = phoneSchema.safeParse(phone);
 - Pin the primary CTA above the keyboard — never let it scroll out of view.
 
 ```tsx
-<KeyboardAvoidingView
-  style={{ flex: 1 }}
-  behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
->
+<KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
   <ScrollView keyboardShouldPersistTaps="handled">
     {/* inputs here */}
     <Button label="Submit" onPress={handleSubmit} />

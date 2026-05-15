@@ -1,10 +1,14 @@
+import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  ActivityIndicator,
   Keyboard,
   KeyboardAvoidingView,
+  LayoutChangeEvent,
   Platform,
+  Pressable,
   ScrollView,
   Text,
   TextInput,
@@ -12,7 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Button, Input, ThemeToggle } from '@/components/ui';
+import { Input, ThemeToggle } from '@/components/ui';
 import { useAuthSession } from '@/features/auth/hooks';
 import { mapUpdateProfileError } from '@/features/onboarding/api/mapUpdateProfileError';
 import { onboardingNameScreenStyles as styles } from '@/features/onboarding/components/onboardingNameScreen.styles';
@@ -22,7 +26,7 @@ import { useEnsureSignedInPath } from '@/features/onboarding/hooks/useEnsureSign
 import { useUpdateDisplayName } from '@/features/onboarding/hooks/useUpdateDisplayName';
 import { useNetworkStatus } from '@/hooks';
 import { AUTH_DISPLAY_NAME } from '@/i18n/strings/displayNameAuth';
-import { useThemeColors } from '@/theme';
+import { space, useThemeColors } from '@/theme';
 
 /** Client UX cap; server allows up to 80 after normalization. */
 const MAX_NAME_CHARS = 30;
@@ -34,6 +38,7 @@ export function OnboardingNameScreen() {
   const { accessToken } = useAuthSession();
   const { isOnline, isReady } = useNetworkStatus();
   const [name, setName] = useState('');
+  const [footerDockHeight, setFooterDockHeight] = useState(112);
   const inputRef = useRef<TextInput>(null);
 
   const { submit, isPending, mutation } = useUpdateDisplayName();
@@ -76,6 +81,21 @@ export function OnboardingNameScreen() {
     submit(trimmed);
   }, [submit, submitDisabled, trimmed]);
 
+  const onFooterDockLayout = useCallback((e: LayoutChangeEvent) => {
+    const { height } = e.nativeEvent.layout;
+    setFooterDockHeight((prev) => (Math.abs(prev - height) < 0.5 ? prev : height));
+  }, []);
+
+  const ctaLabelColor = submitDisabled ? palette.textMuted : palette.textPrimary;
+
+  const onContinuePress = useCallback(() => {
+    if (submitDisabled) return;
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {
+      /* best-effort */
+    });
+    handleSubmit();
+  }, [handleSubmit, submitDisabled]);
+
   const charCount = name.length;
   const counterAdornment = (
     <Text style={[styles.counter, { color: palette.textMuted }]} accessibilityElementsHidden>
@@ -100,7 +120,10 @@ export function OnboardingNameScreen() {
 
           <ScrollView
             style={styles.scroll}
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={[
+              styles.scrollContent,
+              { paddingBottom: footerDockHeight + space.sectionGapSm },
+            ]}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="interactive"
             showsVerticalScrollIndicator={false}
@@ -157,26 +180,68 @@ export function OnboardingNameScreen() {
             </View>
           </ScrollView>
 
-          <View style={styles.footer}>
-            <View style={[styles.hairline, { backgroundColor: palette.borderSubtle }]} />
-
-            <Button
-              variant="primary"
-              label={
-                isPending
-                  ? t('auth.displayName.submitting', { defaultValue: AUTH_DISPLAY_NAME.submitting })
-                  : t('auth.displayName.continue', { defaultValue: AUTH_DISPLAY_NAME.continue })
-              }
-              loading={isPending}
-              disabled={submitDisabled}
-              onPress={handleSubmit}
-              trailing="none"
-              labelCase="none"
-              accessibilityHint={t('auth.displayName.a11y.continueHint', {
-                defaultValue: AUTH_DISPLAY_NAME.a11y.continueHint,
-              })}
-              haptic
-            />
+          <View
+            onLayout={onFooterDockLayout}
+            style={[
+              styles.footerDock,
+              {
+                backgroundColor: palette.background,
+                paddingBottom: Math.max(insets.bottom, space.gapSm),
+              },
+            ]}
+          >
+            <View style={styles.footerCtaAlign}>
+              {isPending ? (
+                <View
+                  style={styles.footerCtaRow}
+                  accessibilityLabel={t('auth.displayName.submitting', {
+                    defaultValue: AUTH_DISPLAY_NAME.submitting,
+                  })}
+                  accessibilityRole="progressbar"
+                >
+                  <ActivityIndicator size="small" color={palette.textSecondary} />
+                  <Text
+                    style={[styles.footerCtaMeta, { color: palette.textMuted }]}
+                    accessibilityElementsHidden
+                  >
+                    {t('auth.displayName.submitting', {
+                      defaultValue: AUTH_DISPLAY_NAME.submitting,
+                    })}
+                  </Text>
+                </View>
+              ) : (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('auth.displayName.continue', {
+                    defaultValue: AUTH_DISPLAY_NAME.continue,
+                  })}
+                  accessibilityHint={t('auth.displayName.a11y.continueHint', {
+                    defaultValue: AUTH_DISPLAY_NAME.a11y.continueHint,
+                  })}
+                  accessibilityState={{ disabled: submitDisabled }}
+                  disabled={submitDisabled}
+                  hitSlop={12}
+                  onPress={onContinuePress}
+                  style={({ pressed }) => [
+                    styles.footerCtaHit,
+                    { opacity: submitDisabled ? 1 : pressed ? 0.55 : 1 },
+                  ]}
+                >
+                  <View style={styles.footerCtaRow}>
+                    <Text style={[styles.footerCtaLabel, { color: ctaLabelColor }]}>
+                      {t('auth.displayName.continue', { defaultValue: AUTH_DISPLAY_NAME.continue })}
+                    </Text>
+                    <Text
+                      style={[styles.footerCtaArrow, { color: ctaLabelColor }]}
+                      accessibilityElementsHidden
+                      importantForAccessibility="no"
+                    >
+                      →
+                    </Text>
+                  </View>
+                </Pressable>
+              )}
+            </View>
           </View>
         </View>
       </KeyboardAvoidingView>

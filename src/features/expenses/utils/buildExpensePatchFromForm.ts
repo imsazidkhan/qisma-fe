@@ -7,6 +7,7 @@ import {
   appendStructuredPatchDiff,
   type ExpenseStructuredPatchSnapshot,
 } from '@/features/expenses/utils/expenseStructuredPatch';
+import { toVeloraqExpenseSplitWire } from '@/features/expenses/utils/expenseSplitVeloraqWire';
 
 function pickDetailNotes(detail: ExpenseDetail): string {
   const raw = (detail as { notes?: unknown }).notes;
@@ -30,7 +31,7 @@ export function buildExpensePatchFromForm(params: {
   structuredDraft?: ExpenseStructuredPatchSnapshot;
 }): PatchExpenseBody {
   const { detail, title, amountMajor, paidByUserId, date, currency, notes, split } = params;
-  const patch: PatchExpenseBody = { split };
+  const patch: PatchExpenseBody = { split: toVeloraqExpenseSplitWire(split) };
   const trimmedTitle = title.trim();
   if (trimmedTitle !== detail.title) {
     patch.title = trimmedTitle;

@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, ScrollView, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, ThemeToggle } from '@/components/ui';
@@ -13,7 +13,7 @@ import { profileScreenStyles as styles } from '@/features/profile/components/pro
 import { ProfileSettingsRow } from '@/features/profile/components/ProfileSettingsRow';
 import { formatProfileIdentifierForDisplay } from '@/features/profile/utils/formatProfileIdentifier';
 import { getQismaTabBarContentInset } from '@/features/qisma/constants/tabBarLayout';
-import { platformShadow, space, useThemeColors } from '@/theme';
+import { platformShadow, space, textStyles, useThemeColors } from '@/theme';
 
 function getDisplayInitials(displayName: string): string {
   const parts = displayName.trim().split(/\s+/).filter(Boolean);
@@ -41,8 +41,8 @@ export function ProfileScreenView({ onSignOut }: ProfileScreenViewProps): ReactE
 
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
 
-  const bottomInset = getQismaTabBarContentInset(insets.bottom);
-  const scrollPadBottom = bottomInset + space.sectionGapLg;
+  /** Bottom padding so scroll content clears the floating tab dock. */
+  const dockBottomPad = getQismaTabBarContentInset(insets.bottom);
 
   const displayName = useMemo(() => {
     const fromApi = me?.name?.trim();
@@ -92,7 +92,10 @@ export function ProfileScreenView({ onSignOut }: ProfileScreenViewProps): ReactE
         style={{ flex: 1 }}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: scrollPadBottom, paddingHorizontal: space.screenPadding },
+          {
+            paddingBottom: dockBottomPad + space.gapMd,
+            paddingHorizontal: space.screenPadding,
+          },
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -142,14 +145,25 @@ export function ProfileScreenView({ onSignOut }: ProfileScreenViewProps): ReactE
           >
             {displayName}
           </Text>
+          <Pressable
+            onPress={() => void onSignOut()}
+            accessibilityRole="button"
+            accessibilityLabel={t('profile.signOut')}
+            accessibilityHint={t('profile.signOutHint')}
+            style={({ pressed }) => [styles.signOutPressable, { opacity: pressed ? 0.72 : 1 }]}
+          >
+            <Text style={[textStyles.body, styles.signOutLabel, { color: palette.textSecondary }]}>
+              {t('profile.signOut')}
+            </Text>
+          </Pressable>
           <Text style={[styles.phoneLine, { color: palette.textSecondary }]}>{phoneDisplay}</Text>
           <Button
             variant="secondary"
             label={t('profile.editProfile')}
             onPress={showSoon}
             labelCase="none"
-            trailing="none"
-            contentAlign="center"
+            trailing="arrow"
+            contentAlign="between"
             fullWidth={false}
             style={styles.editProfileBtn}
             accessibilityHint={t('profile.editProfileHint')}
@@ -238,18 +252,6 @@ export function ProfileScreenView({ onSignOut }: ProfileScreenViewProps): ReactE
               accessibilityHint={t('profile.rowPrivacyHint')}
             />
           </View>
-        </View>
-
-        <View style={styles.signOutWrap}>
-          <Button
-            variant="secondary"
-            label={t('profile.signOut')}
-            onPress={() => void onSignOut()}
-            labelCase="none"
-            trailing="none"
-            accessibilityHint={t('profile.signOutHint')}
-            haptic
-          />
         </View>
       </ScrollView>
     </SafeAreaView>

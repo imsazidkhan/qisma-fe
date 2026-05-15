@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 
 import { useAuthSessionStore } from '@/features/auth/store/useAuthSessionStore';
-import { getDeviceId } from '@/services';
+import { getDeviceId } from '@/services/deviceId';
 import { logger } from '@/services/logger';
 
 import { tryRefreshAfterUnauthorized } from './authRetry';

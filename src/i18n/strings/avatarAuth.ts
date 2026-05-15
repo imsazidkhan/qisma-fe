@@ -2,13 +2,12 @@
 export const AUTH_AVATAR = {
   eyebrow: 'Profile',
   title: 'Add a profile photo',
-  subtitle: 'Optional — you can skip and add one later in settings.',
+  subtitle: 'Optional — you can add or change this anytime in settings.',
   choosePhoto: 'Choose photo',
   changePhoto: 'Change photo',
   continue: 'Continue',
   uploading: 'Uploading…',
   saving: 'Saving…',
-  skip: 'Skip for now',
   offlineHint: "You're offline. Connect to upload.",
   previewA11y: 'Profile photo preview',
 
@@ -25,6 +24,5 @@ export const AUTH_AVATAR = {
   a11y: {
     chooseHint: 'Opens your photo library',
     continueHint: 'Uploads your photo and continues',
-    skipHint: 'Continues without a profile photo',
   },
 } as const;

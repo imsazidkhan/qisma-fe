@@ -3,6 +3,7 @@ import type { ReactElement } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { ExpenseCategoryListItem } from '@/features/expenses/types/expenseTaxonomy.types';
+import { renderExpenseTierIcon } from '@/features/expenses/utils/renderExpenseTierIcon';
 import { radius, space, typography, useThemeColors } from '@/theme';
 
 export type CategorySuggestionBarProps = {
@@ -59,7 +60,14 @@ export function CategorySuggestionBar({
               opacity: pressed ? 0.72 : 1,
             })}
           >
-            <Text style={{ fontSize: 12 }}>{c.icon ?? '•'}</Text>
+            <View style={{ width: 22, height: 22, alignItems: 'center', justifyContent: 'center' }}>
+              {renderExpenseTierIcon(c, {
+                size: 22,
+                glyphColor: palette.textSecondary,
+                fallbackTextColor: palette.textMuted,
+                fallbackIon: 'pricetag-outline',
+              })}
+            </View>
             <Text
               style={{
                 fontFamily: typography.fontFamily.mono.medium,

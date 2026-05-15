@@ -1,6 +1,7 @@
 ---
-description: "Use when writing API functions, TanStack Query hooks, Zustand stores, or Zod schemas. Covers server state, client state, API layer, error handling, and data validation patterns."
-applyTo: ["src/features/**/api/**", "src/features/**/hooks/**", "src/features/**/store/**", "src/api/**"]
+description: 'Use when writing API functions, TanStack Query hooks, Zustand stores, or Zod schemas. Covers server state, client state, API layer, error handling, and data validation patterns.'
+applyTo:
+  ['src/features/**/api/**', 'src/features/**/hooks/**', 'src/features/**/store/**', 'src/api/**']
 ---
 
 # State & Data Rules
@@ -77,8 +78,8 @@ retry: (failureCount, error) => {
 const { phone, isPending } = useMyStore();
 
 // ✅ GOOD — narrow selectors
-const phone = useMyStore(s => s.phone);
-const isPending = useMyStore(s => s.isPending);
+const phone = useMyStore((s) => s.phone);
+const isPending = useMyStore((s) => s.isPending);
 ```
 
 - Never mutate state directly. Use `set(s => ({ ...s }))` pattern.

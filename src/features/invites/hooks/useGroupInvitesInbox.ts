@@ -13,7 +13,7 @@ const POLL_MS = 60_000;
  * Shared inbox query for tab badge + Invites screen.
  *
  * React Query dedupes by `queryKey`: tab bar and screen observers share one in-flight fetch.
- * `reloadToken` forces a new key after OTP verify; polling + pull-to-refresh + tab focus use the same key for coalescing.
+ * `reloadToken` forces a new key after session refresh; polling + pull-to-refresh + tab focus use the same key for coalescing.
  */
 export function useGroupInvitesInbox() {
   const { accessToken } = useAuthSession();

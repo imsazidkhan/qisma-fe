@@ -5,7 +5,7 @@ import {
   type ExpenseCategoryListItem,
 } from '@/features/expenses/types/expenseTaxonomy.types';
 
-const reclassifyResponseSchema = z.object({ ok: z.literal(true) });
+const reclassifyResponseSchema = z.object({ ok: z.boolean() });
 
 export type ReclassifyExpenseBody = {
   categorySlug: string;
@@ -32,15 +32,19 @@ export async function fetchExpenseCategories(
 }
 
 export async function reclassifyExpense(
+  groupId: string,
   expenseId: string,
   body: ReclassifyExpenseBody,
   signal?: AbortSignal,
-): Promise<{ ok: true }> {
-  const raw = await apiFetch<unknown>(ENDPOINTS.expenses.reclassify(expenseId), {
-    method: 'POST',
-    body,
-    signal,
-  });
+): Promise<{ ok: boolean }> {
+  const raw = await apiFetch<unknown>(
+    ENDPOINTS.expenses.groupExpenseReclassify(groupId, expenseId),
+    {
+      method: 'POST',
+      body,
+      signal,
+    },
+  );
   const parsed = reclassifyResponseSchema.safeParse(raw);
   if (!parsed.success) {
     throw new ApiError({

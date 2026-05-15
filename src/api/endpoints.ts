@@ -58,37 +58,40 @@ export const ENDPOINTS = {
   users: {
     /** `GET` groups the signed-in user belongs to (membership home list). */
     meGroups: '/users/me/groups',
+    /** `GET` tabbed groups dashboard with balances + card metadata (`?tab=` optional). */
+    meGroupsHome: '/users/me/groups/home',
     /**
      * `GET` **`group_members.pending`** for the current user (registered invite path).
      * Not `group_invites` rows for phones without an account yet.
      */
     meGroupInvites: '/users/me/group-invites',
-    /** `GET` directory search; `q` trimmed, 2–96 chars. */
-    search: (q: string) => `/users/search?q=${encodeURIComponent(q)}`,
   },
   expenses: {
-    /** `POST` — title-only classification preview (`{ title }` → taxonomy suggestion). */
+    /** `POST` — title-only classification preview (`{ title }` → category suggestion). Throttle ~45/min (server). */
     classify: '/expenses/classify',
-    /** `POST` — user correction for a saved expense category/subcategory. */
-    reclassify: (expenseId: string) =>
-      `/expenses/${encodeURIComponent(expenseId)}/reclassify`,
-    /** `GET` — full expense (participants, comments, reactions, attachments, history). Soft-deleted → 404. */
-    detail: (expenseId: string) => `/expenses/${encodeURIComponent(expenseId)}`,
-    /** `PATCH` — partial update (legacy global path; prefer {@link groupPatch}). */
-    patch: (expenseId: string) => `/expenses/${encodeURIComponent(expenseId)}`,
-    /** `PATCH` — `PATCH /v1/groups/:groupId/expenses/:expenseId` (structured + financial fields). */
-    groupPatch: (groupId: string, expenseId: string) =>
+    /**
+     * Group-scoped expense row — **`GET`** detail, **`PATCH`**, **`DELETE`** (`/v1/groups/:groupId/expenses/:expenseId`).
+     */
+    groupExpense: (groupId: string, expenseId: string) =>
       `/groups/${encodeURIComponent(groupId)}/expenses/${encodeURIComponent(expenseId)}`,
-    /** `DELETE` — soft-delete; idempotent second call → 404 (`EXPENSE_NOT_FOUND`). */
-    remove: (expenseId: string) => `/expenses/${encodeURIComponent(expenseId)}`,
-    /** `POST` — add comment; body `{ message }`. */
-    comments: (expenseId: string) => `/expenses/${encodeURIComponent(expenseId)}/comments`,
+    /** `POST` — user-driven category correction (`…/reclassify`). */
+    groupExpenseReclassify: (groupId: string, expenseId: string) =>
+      `/groups/${encodeURIComponent(groupId)}/expenses/${encodeURIComponent(expenseId)}/reclassify`,
+    /** `GET` list / `POST` thread — `/v1/groups/:groupId/expenses/:expenseId/comments`. */
+    groupExpenseComments: (groupId: string, expenseId: string) =>
+      `/groups/${encodeURIComponent(groupId)}/expenses/${encodeURIComponent(expenseId)}/comments`,
+    /** `PATCH` / `DELETE` single comment. */
+    groupExpenseComment: (groupId: string, expenseId: string, commentId: string) =>
+      `/groups/${encodeURIComponent(groupId)}/expenses/${encodeURIComponent(expenseId)}/comments/${encodeURIComponent(commentId)}`,
     /** `POST` — add reaction; body `{ emoji }`. **201** new, **200** idempotent duplicate. */
-    reactions: (expenseId: string) => `/expenses/${encodeURIComponent(expenseId)}/reactions`,
-    /** `POST` — upload receipt; multipart field `file` (JPEG, PNG, WebP, GIF, PDF; max 20 MB). */
-    receipts: (expenseId: string) => `/expenses/${encodeURIComponent(expenseId)}/receipts`,
-    /** `POST` — create expense; body `CreateExpenseBodyDto`. */
+    groupExpenseReactions: (groupId: string, expenseId: string) =>
+      `/groups/${encodeURIComponent(groupId)}/expenses/${encodeURIComponent(expenseId)}/reactions`,
+    /** `POST` — upload receipt; multipart field `file`. Throttle ~30/min (server). */
+    groupExpenseReceipts: (groupId: string, expenseId: string) =>
+      `/groups/${encodeURIComponent(groupId)}/expenses/${encodeURIComponent(expenseId)}/receipts`,
+    /** `POST` — create expense in group. **201** */
     groupCreate: (groupId: string) => `/groups/${encodeURIComponent(groupId)}/expenses`,
+    /** `GET` — cursor-paginated feed for one group. */
     groupFeed: (groupId: string) => `/groups/${encodeURIComponent(groupId)}/expenses`,
   },
   upload: {

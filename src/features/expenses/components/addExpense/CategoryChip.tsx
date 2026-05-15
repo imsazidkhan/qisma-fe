@@ -4,6 +4,7 @@ import type { ReactElement } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { ExpenseCategoryListItem } from '@/features/expenses/types/expenseTaxonomy.types';
+import { renderExpenseTierIcon } from '@/features/expenses/utils/renderExpenseTierIcon';
 import { radius, space, typography, useThemeColors } from '@/theme';
 
 export type CategoryChipProps = {
@@ -39,7 +40,12 @@ export function CategoryChip({ category, onDismiss }: CategoryChipProps): ReactE
           backgroundColor: palette.surfaceFloating,
         }}
       >
-        <Text style={{ fontSize: 12 }}>{category.icon ?? '•'}</Text>
+        {renderExpenseTierIcon(category, {
+          size: 22,
+          glyphColor: palette.textSecondary,
+          fallbackTextColor: palette.textMuted,
+          fallbackIon: 'pricetag-outline',
+        })}
       </View>
       <Text
         style={{

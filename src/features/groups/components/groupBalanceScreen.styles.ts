@@ -4,21 +4,27 @@ import { radius, space, textStyles, typography } from '@/theme';
 
 export const groupBalanceScreenStyles = StyleSheet.create({
   safe: { flex: 1 },
+  flexFill: { flex: 1 },
   listContent: {
-    paddingHorizontal: space.screenPadding,
+    paddingHorizontal: space.screenPaddingLg,
     paddingBottom: space.gapXl,
     flexGrow: 1,
   },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  headerShell: {
     alignSelf: 'stretch',
     marginBottom: space.gapMd,
   },
-  headerBlock: {
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     alignSelf: 'stretch',
-    gap: space.gapXs,
-    marginBottom: space.sectionGap,
+  },
+  headerTitles: {
+    flex: 1,
+    minWidth: 0,
+    gap: space.paddingXs,
+    paddingTop: 0,
+    paddingRight: 0,
   },
   title: {
     ...textStyles.h3,
@@ -31,14 +37,9 @@ export const groupBalanceScreenStyles = StyleSheet.create({
     letterSpacing: typography.letterSpacing.wide,
     alignSelf: 'flex-start',
   },
-  sectionKicker: {
-    ...textStyles.overline,
-    fontSize: typography.fontSize.screenSection,
-    fontFamily: typography.fontFamily.mono.medium,
-    letterSpacing: typography.letterSpacing.widest,
+  hubCardWrap: {
+    marginTop: space.gapSm,
     alignSelf: 'stretch',
-    marginTop: space.gapLg,
-    marginBottom: space.gapSm,
   },
   rowPressable: {
     alignSelf: 'stretch',
@@ -104,5 +105,30 @@ export const groupBalanceScreenStyles = StyleSheet.create({
   loader: {
     alignSelf: 'flex-start',
     marginTop: space.gapMd,
+  },
+  offlineBanner: {
+    alignSelf: 'stretch',
+    borderRadius: radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingVertical: space.gapSm,
+    paddingHorizontal: space.gapMd,
+    marginBottom: space.gapSm,
+  },
+  emptyShell: {
+    paddingVertical: space.gapLg,
+    gap: space.gapSm,
+    alignSelf: 'stretch',
+  },
+  emptyTitle: {
+    ...textStyles.h3,
+    fontSize: typography.fontSize.xl,
+    fontFamily: typography.fontFamily.sans.semiBold,
+    zIndex: 1,
+  },
+  emptyBody: {
+    ...textStyles.body,
+    fontSize: typography.fontSize.sm,
+    zIndex: 1,
+    maxWidth: 280,
   },
 });

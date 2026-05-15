@@ -3,6 +3,13 @@ import type {
   ExpenseSplitPayload,
 } from '@/features/expenses/types/expense.types';
 import type { ExpenseStructuredDraft } from '@/features/expenses/types/expenseTaxonomy.types';
+import { isUuid } from '@/features/groups/utils/isUuid';
+import { toVeloraqExpenseSplitWire } from '@/features/expenses/utils/expenseSplitVeloraqWire';
+
+function wireMerchantId(value: string | undefined): string | undefined {
+  const t = value?.trim() ?? '';
+  return isUuid(t) ? t : undefined;
+}
 
 export function buildCreateExpenseBodyFromForm(params: {
   title: string;
@@ -12,38 +19,25 @@ export function buildCreateExpenseBodyFromForm(params: {
   currency: string;
   notes: string;
   split: ExpenseSplitPayload;
-  category?: string;
   structured?: ExpenseStructuredDraft | null;
 }): CreateGroupExpenseBody {
   const trimmedNotes = params.notes.trim();
-  const trimmedCategory = params.category?.trim();
   const body: CreateGroupExpenseBody = {
     title: params.title.trim(),
     amount: params.amountMajor,
     paidByUserId: params.paidByUserId,
     date: params.date.trim(),
     currency: params.currency.trim() || 'INR',
-    split: params.split,
+    split: toVeloraqExpenseSplitWire(params.split),
   };
   if (trimmedNotes) {
     body.notes = trimmedNotes;
   }
-  if (trimmedCategory) {
-    body.category = trimmedCategory;
-  }
   const st = params.structured;
   if (st) {
-    if (st.categoryId) {
-      body.categoryId = st.categoryId;
-    }
-    if (st.subcategoryId) {
-      body.subcategoryId = st.subcategoryId;
-    }
-    if (st.merchantId) {
-      body.merchantId = st.merchantId;
-    }
-    if (st.tagIds.length > 0) {
-      body.tagIds = st.tagIds;
+    const merchantId = wireMerchantId(st.merchantId);
+    if (merchantId) {
+      body.merchantId = merchantId;
     }
   }
   return body;

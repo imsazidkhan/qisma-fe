@@ -1,4 +1,4 @@
-import { apiFetch, ENDPOINTS } from '@/api';
+import { apiFetch, CLIENT_ERROR_CODES, ENDPOINTS } from '@/api';
 import { ApiError } from '@/api/ApiError';
 import { EXPENSE_DETAIL_ERROR_CODES } from '@/features/expenses/constants/errorCodes';
 import type {
@@ -60,7 +60,10 @@ async function mockCreateGroupExpense(
   };
 }
 
-async function mockDeleteExpense(expenseId: string): Promise<DeleteExpenseResponse> {
+async function mockDeleteExpense(
+  groupId: string,
+  expenseId: string,
+): Promise<DeleteExpenseResponse> {
   await new Promise((r) => setTimeout(r, 300));
   if (MOCK_SOFT_DELETED_EXPENSE_IDS.has(expenseId)) {
     throw new ApiError({
@@ -73,7 +76,7 @@ async function mockDeleteExpense(expenseId: string): Promise<DeleteExpenseRespon
   const now = new Date().toISOString();
   const expense: ExpenseCore = {
     id: expenseId,
-    groupId: 'mock-group',
+    groupId,
     title: 'Mock expense',
     amount: '0',
     currency: 'INR',
@@ -105,7 +108,7 @@ export function createGroupExpense(
 
 /**
  * `PATCH /v1/groups/:groupId/expenses/:expenseId` — partial update. If `amount` or `paidByUserId`
- * changes, send full `split`.
+ * changes, send full `split`. Optional `expectedUpdatedAt` prevents stale writes.
  */
 export function patchExpense(
   groupId: string,
@@ -116,7 +119,7 @@ export function patchExpense(
   if (MOCK_FLAG) {
     return mockPatchExpense(groupId, expenseId, body);
   }
-  return apiFetch<PatchExpenseResponse>(ENDPOINTS.expenses.groupPatch(groupId, expenseId), {
+  return apiFetch<PatchExpenseResponse>(ENDPOINTS.expenses.groupExpense(groupId, expenseId), {
     method: 'PATCH',
     body,
     signal,
@@ -124,17 +127,17 @@ export function patchExpense(
 }
 
 /**
- * `DELETE /v1/expenses/:id` — soft-delete. Returns updated `expense` (with `deletedAt`) and
- * `groupBalances` without this expense. Second delete on the same id → **404** (`EXPENSE_NOT_FOUND`).
+ * `DELETE /v1/groups/:groupId/expenses/:expenseId` — soft-delete. Second delete → **404** (`EXPENSE_NOT_FOUND`).
  */
 export function deleteExpense(
+  groupId: string,
   expenseId: string,
   signal?: AbortSignal,
 ): Promise<DeleteExpenseResponse> {
   if (MOCK_FLAG) {
-    return mockDeleteExpense(expenseId);
+    return mockDeleteExpense(groupId, expenseId);
   }
-  return apiFetch<DeleteExpenseResponse>(ENDPOINTS.expenses.remove(expenseId), {
+  return apiFetch<DeleteExpenseResponse>(ENDPOINTS.expenses.groupExpense(groupId, expenseId), {
     method: 'DELETE',
     signal,
   });
@@ -142,12 +145,18 @@ export function deleteExpense(
 
 export function mapExpensePatchError(err: unknown): { titleKey: string; messageKey: string } {
   if (err instanceof ApiError) {
+    let messageKey: string = 'expenses.edit.errorGeneric';
+    if (err.code === 'SPLIT_VALIDATION_ERROR') {
+      messageKey = 'expenses.edit.errorSplitFinancial';
+    } else if (
+      err.code === EXPENSE_DETAIL_ERROR_CODES.EXPENSE_STALE_VERSION ||
+      err.status === 409
+    ) {
+      messageKey = 'expenses.edit.errorStaleVersion';
+    }
     return {
       titleKey: 'expenses.edit.errorTitle',
-      messageKey:
-        err.code === 'SPLIT_VALIDATION_ERROR'
-          ? 'expenses.edit.errorSplitFinancial'
-          : 'expenses.edit.errorGeneric',
+      messageKey,
     };
   }
   return {
@@ -156,16 +165,51 @@ export function mapExpensePatchError(err: unknown): { titleKey: string; messageK
   };
 }
 
-export function mapExpenseCreateError(err: unknown): { titleKey: string; messageKey: string } {
+export type MappedExpenseCreateError = {
+  titleKey: string;
+  messageKey: string;
+  /** Server validation lines — safe to show; no PII in typical Nest `details[]`. */
+  messagePlain?: string;
+};
+
+export function mapExpenseCreateError(err: unknown): MappedExpenseCreateError {
+  const connectivityCodes = new Set<string>([
+    CLIENT_ERROR_CODES.NETWORK_ERROR,
+    CLIENT_ERROR_CODES.TIMEOUT,
+    CLIENT_ERROR_CODES.CANCELLED,
+  ]);
+
   if (err instanceof ApiError) {
+    const messageKey =
+      err.code === 'SPLIT_VALIDATION_ERROR'
+        ? 'expenses.add.errorSplit'
+        : 'expenses.add.errorGeneric';
+    const detailText = err.details?.filter((d) => d.trim() !== '').join('\n') ?? '';
+
+    let messagePlain: string | undefined;
+    if (connectivityCodes.has(err.code)) {
+      messagePlain = undefined;
+    } else {
+      const trimmedMsg = err.message.trim();
+      messagePlain =
+        detailText.trim() !== '' ? detailText.trim() : trimmedMsg !== '' ? trimmedMsg : undefined;
+    }
+
     return {
       titleKey: 'expenses.add.errorTitle',
-      messageKey:
-        err.code === 'SPLIT_VALIDATION_ERROR'
-          ? 'expenses.add.errorSplit'
-          : 'expenses.add.errorGeneric',
+      messageKey,
+      ...(messagePlain ? { messagePlain } : {}),
     };
   }
+
+  if (err instanceof Error && err.message.trim() !== '') {
+    return {
+      titleKey: 'expenses.add.errorTitle',
+      messageKey: 'expenses.add.errorGeneric',
+      messagePlain: err.message.trim(),
+    };
+  }
+
   return {
     titleKey: 'expenses.add.errorTitle',
     messageKey: 'expenses.add.errorGeneric',

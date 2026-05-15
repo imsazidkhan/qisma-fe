@@ -23,6 +23,8 @@ export const duration = {
   instant: { ms: 0, tw: 'duration-0' },
   micro: { ms: 80, tw: 'duration-75' },
   fast: { ms: 120, tw: 'duration-100' },
+  /** Ledger cards — Wallet hover / press tactile (~180 ms). */
+  feedCardHover: { ms: 180, tw: 'duration-200' },
   normal: { ms: 200, tw: 'duration-200' },
   moderate: { ms: 280, tw: 'duration-300' },
   slow: { ms: 350, tw: 'duration-300' },

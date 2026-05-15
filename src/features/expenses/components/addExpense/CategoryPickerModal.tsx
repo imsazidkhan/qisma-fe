@@ -5,6 +5,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { ExpenseCategoryListItem } from '@/features/expenses/types/expenseTaxonomy.types';
+import { renderExpenseTierIcon } from '@/features/expenses/utils/renderExpenseTierIcon';
 import { radius, size, space, typography, useThemeColors } from '@/theme';
 
 export type CategoryPickerModalProps = {
@@ -24,9 +25,21 @@ export function CategoryPickerModal({
   const palette = useThemeColors();
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="fullScreen"
+      onRequestClose={onClose}
+    >
       <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: palette.background }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: space.screenPadding }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: space.screenPadding,
+          }}
+        >
           <Text
             style={{
               fontFamily: typography.fontFamily.mono.medium,
@@ -90,7 +103,12 @@ export function CategoryPickerModal({
                   borderColor: palette.borderSubtle,
                 }}
               >
-                <Text style={{ fontSize: 14 }}>{c.icon ?? '•'}</Text>
+                {renderExpenseTierIcon(c, {
+                  size: size.avatarSm,
+                  glyphColor: palette.textSecondary,
+                  fallbackTextColor: palette.textMuted,
+                  fallbackIon: 'pricetag-outline',
+                })}
               </View>
               <Text
                 style={{

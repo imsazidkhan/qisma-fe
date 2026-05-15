@@ -1,6 +1,6 @@
 ---
-description: "Use when writing or editing Expo Router layout files (_layout.tsx) or any file that configures Stack/Tab navigators. Enforces explicit animation, themed contentStyle, and transition consistency."
-applyTo: "src/app/**/_layout.tsx"
+description: 'Use when writing or editing Expo Router layout files (_layout.tsx) or any file that configures Stack/Tab navigators. Enforces explicit animation, themed contentStyle, and transition consistency.'
+applyTo: 'src/app/**/_layout.tsx'
 ---
 
 # Navigation & Transitions Rules
@@ -11,7 +11,7 @@ Every `Stack` in `src/app/**/_layout.tsx` **must** set `screenOptions.animation`
 
 ```tsx
 // ❌ BAD — no animation set, OS default varies per platform/version
-<Stack screenOptions={{ headerShown: false }} />
+<Stack screenOptions={{ headerShown: false }} />;
 
 // ✅ GOOD — explicit animation + themed background
 const palette = useThemeColors();
@@ -22,16 +22,16 @@ const palette = useThemeColors();
     contentStyle: { backgroundColor: palette.background },
     animation: 'slide_from_right',
   }}
-/>
+/>;
 ```
 
 ## Animation Choices
 
-| Case | Animation |
-|------|-----------|
-| Default push (root + nested stacks) | `slide_from_right` |
+| Case                                     | Animation                         |
+| ---------------------------------------- | --------------------------------- |
+| Default push (root + nested stacks)      | `slide_from_right`                |
 | Intentional cross-fade between two peers | `fade` (per-screen override only) |
-| Splash / no-motion screen | `none` (per-screen override only) |
+| Splash / no-motion screen                | `none` (per-screen override only) |
 
 - **Do not** use `fade` globally — it creates a persistent dimmed veil on some Android / Fabric builds.
 - **Do not** use `slide_from_bottom` for standard navigation — reserve for modals/sheets.
@@ -50,7 +50,9 @@ Override only the screen that needs it. Do not change the whole stack:
 Always set `contentStyle` with the themed background color alongside `animation` to prevent a wrong-color backdrop flash during transitions:
 
 ```tsx
-contentStyle: { backgroundColor: palette.background }
+contentStyle: {
+  backgroundColor: palette.background;
+}
 ```
 
 ## Sibling Stacks

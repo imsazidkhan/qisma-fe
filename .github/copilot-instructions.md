@@ -56,14 +56,14 @@ src/
 
 ```tsx
 // ❌ WRONG — hardcoded, won't react to theme
-<View style={{ backgroundColor: '#0A0A0A' }} />
+<View style={{ backgroundColor: '#0A0A0A' }} />;
 import { colors } from '@/theme';
-<View style={{ backgroundColor: colors.surfaceElevated }} />  // dark-only
+<View style={{ backgroundColor: colors.surfaceElevated }} />; // dark-only
 
 // ✅ CORRECT — subscribes to active palette, flips light/dark
 import { useThemeColors } from '@/theme';
 const palette = useThemeColors();
-<View style={{ backgroundColor: palette.surfaceElevated }} />
+<View style={{ backgroundColor: palette.surfaceElevated }} />;
 ```
 
 - **Never hardcode colors, spacing, radius, typography, shadows.**

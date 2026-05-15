@@ -6,7 +6,7 @@ import { Button, StepIndicator } from '@/components/ui';
 import { OtpCodeField } from '@/features/auth/components/OtpCodeField';
 import { useLoginOtpVerify } from '@/features/auth/hooks/useLoginOtpVerify';
 import { formatMmSs } from '@/hooks';
-import { useThemeColors } from '@/theme';
+import { space, useThemeColors } from '@/theme';
 
 import { LoginTopBar } from './LoginTopBar';
 import { LoginVerifyErrorBanner } from './LoginVerifyErrorBanner';
@@ -140,16 +140,30 @@ export function LoginOtpCard({ phoneE164, sessionId, expiresAt, resendAt }: Prop
         </View>
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View
+        style={[
+          styles.footer,
+          {
+            marginTop: space.gapLg,
+            paddingTop: space.gapMd,
+            paddingBottom: space.gapSm,
+            backgroundColor: palette.surfaceBase,
+            borderTopWidth: 1,
+            borderTopColor: palette.border,
+          },
+        ]}
+      >
         <Button
-          variant="primary"
+          variant="accent"
           label={v.isVerifyPending ? t('auth.phone.sentVerifying') : t('auth.phone.sentVerify')}
+          labelCase="none"
           loading={v.isVerifyPending}
           disabled={v.verifySubmitDisabled}
           onPress={v.onVerify}
           accessibilityLabel={t('auth.phone.sentVerify')}
           accessibilityHint={t('auth.phone.a11y.verifyHint')}
           haptic
+          style={styles.loginCta}
         />
       </View>
     </View>

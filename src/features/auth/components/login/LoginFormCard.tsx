@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   Text,
   View,
@@ -10,7 +12,9 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Button, type StatusDotState, StepIndicator } from '@/components/ui';
+import * as Haptics from 'expo-haptics';
+
+import { type StatusDotState, StepIndicator } from '@/components/ui';
 import { ANALYTICS_EVENTS, DEFAULT_PHONE_REGION } from '@/constants';
 import { useOtpFlowCooldown } from '@/features/auth/hooks/useOtpFlowCooldown';
 import { useSendOtp } from '@/features/auth/hooks/useSendOtp';
@@ -19,10 +23,11 @@ import { useNetworkStatus } from '@/hooks';
 import { track } from '@/services';
 import { space, useThemeColors } from '@/theme';
 import { isValidPhone, normalizeToE164 } from '@/utils';
-import { PhoneInput } from '../PhoneInput';
+import { PhoneInput, phoneInputLoginPreset } from '../PhoneInput';
 
 import { LoginFlowBanner } from './LoginFlowBanner';
 import { LoginFootnote } from './LoginFootnote';
+import { LoginScreenBackdrop } from './LoginScreenBackdrop';
 import { LoginTopBar } from './LoginTopBar';
 import { loginScreenStyles as styles } from './loginScreen.styles';
 
@@ -100,6 +105,15 @@ export function LoginFormCard() {
   };
 
   const submitDisabled = !isPhoneValid || !isOnline || isPending || isCooling;
+  const ctaLabelColor = submitDisabled ? palette.textMuted : palette.textPrimary;
+
+  const onSendCodePress = useCallback(() => {
+    if (submitDisabled) return;
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {
+      /* best-effort */
+    });
+    handleSubmit();
+  }, [handleSubmit, submitDisabled]);
 
   const mainColumn = (
     <View style={[styles.container, { paddingBottom: 0 }]}>
@@ -132,7 +146,7 @@ export function LoginFormCard() {
             onChangeText={handleChange}
             autoFocus
             editable={!isPending}
-            showDigitCounter
+            {...phoneInputLoginPreset}
           />
 
           <LoginFlowBanner />
@@ -144,21 +158,57 @@ export function LoginFormCard() {
         style={[
           styles.footer,
           styles.footerDock,
-          { backgroundColor: palette.background, paddingBottom: space.sectionGap },
+          {
+            paddingHorizontal: space.screenPaddingLg,
+            paddingBottom: Math.max(insets.bottom, space.gapLg),
+            paddingTop: space.gapLg,
+          },
         ]}
       >
-        <View style={[styles.hairline, { backgroundColor: palette.borderSubtle }]} />
-
-        <Button
-          variant="primary"
-          label={isPending ? t('auth.phone.submitting') : t('auth.phone.submit')}
-          loading={isPending}
-          disabled={submitDisabled}
-          onPress={handleSubmit}
-          accessibilityLabel={t('auth.phone.submit')}
-          accessibilityHint={t('auth.phone.a11y.submitHint')}
-          haptic
-        />
+        <View style={styles.footerCtaAlign}>
+          {isPending ? (
+            <View
+              style={styles.footerCtaRow}
+              accessibilityLabel={t('auth.phone.submitting')}
+              accessibilityRole="progressbar"
+            >
+              <ActivityIndicator size="small" color={palette.textSecondary} />
+              <Text
+                style={[styles.footerCtaMeta, { color: palette.textMuted }]}
+                accessibilityElementsHidden
+              >
+                {t('auth.phone.submitting')}
+              </Text>
+            </View>
+          ) : (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('auth.phone.submit')}
+              accessibilityHint={t('auth.phone.a11y.submitHint')}
+              accessibilityState={{ disabled: submitDisabled }}
+              disabled={submitDisabled}
+              hitSlop={12}
+              onPress={onSendCodePress}
+              style={({ pressed }) => [
+                styles.footerCtaHit,
+                { opacity: submitDisabled ? 1 : pressed ? 0.55 : 1 },
+              ]}
+            >
+              <View style={styles.footerCtaRow}>
+                <Text style={[styles.footerCtaLabel, { color: ctaLabelColor }]}>
+                  {t('auth.phone.submit')}
+                </Text>
+                <Text
+                  style={[styles.footerCtaArrow, { color: ctaLabelColor }]}
+                  accessibilityElementsHidden
+                  importantForAccessibility="no"
+                >
+                  →
+                </Text>
+              </View>
+            </Pressable>
+          )}
+        </View>
 
         <LoginFootnote />
       </View>
@@ -170,17 +220,20 @@ export function LoginFormCard() {
       edges={['top', 'bottom']}
       style={[styles.safe, { backgroundColor: palette.background }]}
     >
-      {Platform.OS === 'ios' ? (
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior="padding"
-          keyboardVerticalOffset={insets.top}
-        >
-          {mainColumn}
-        </KeyboardAvoidingView>
-      ) : (
-        <View style={styles.flex}>{mainColumn}</View>
-      )}
+      <View style={styles.flex}>
+        <LoginScreenBackdrop />
+        {Platform.OS === 'ios' ? (
+          <KeyboardAvoidingView
+            style={styles.flex}
+            behavior="padding"
+            keyboardVerticalOffset={insets.top}
+          >
+            {mainColumn}
+          </KeyboardAvoidingView>
+        ) : (
+          <View style={styles.flex}>{mainColumn}</View>
+        )}
+      </View>
     </SafeAreaView>
   );
 }

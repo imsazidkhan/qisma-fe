@@ -16,8 +16,10 @@ export function usePatchExpense(groupId: string, expenseId: string) {
   return useMutation<PatchExpenseResponse, Error, PatchExpenseBody>({
     mutationFn: (body) => patchExpense(groupId, expenseId, body),
     onSuccess: (data) => {
-      applyExpenseWriteToCaches(queryClient, data, me?.id);
-      void queryClient.invalidateQueries({ queryKey: expensesQueryKeys.detail(expenseId) });
+      applyExpenseWriteToCaches(queryClient, data, me?.id, { routeGroupId: groupId });
+      void queryClient.invalidateQueries({
+        queryKey: expensesQueryKeys.detail(groupId, expenseId),
+      });
     },
   });
 }

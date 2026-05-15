@@ -2,6 +2,8 @@ import { useReactQueryDevTools } from '@dev-plugins/react-query';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { type PropsWithChildren, useEffect, useState } from 'react';
 
+import { registerSessionQueryRevalidationClient } from '@/features/auth/sessionQueryRevalidation';
+
 import { attachFocusManager } from './focusManager';
 import { attachOnlineManager } from './onlineManager';
 import { createAppQueryClient } from './queryClient';
@@ -24,13 +26,15 @@ export function QueryProvider({ children }: PropsWithChildren) {
   const [client] = useState(createAppQueryClient);
 
   useEffect(() => {
+    registerSessionQueryRevalidationClient(client);
     const detachOnline = attachOnlineManager();
     const detachFocus = attachFocusManager();
     return () => {
+      registerSessionQueryRevalidationClient(null);
       detachOnline();
       detachFocus();
     };
-  }, []);
+  }, [client]);
 
   useReactQueryDevTools(client);
 

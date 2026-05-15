@@ -12,14 +12,16 @@ export type UploadExpenseReceiptVariables = {
   onProgress?: (ratio: number) => void;
 };
 
-export function useUploadExpenseReceipt(expenseId: string) {
+export function useUploadExpenseReceipt(groupId: string, expenseId: string) {
   const queryClient = useQueryClient();
+  const gid = groupId.trim();
+  const eid = expenseId.trim();
 
   return useMutation<ExpenseAttachmentEntry, Error, UploadExpenseReceiptVariables>({
     mutationFn: ({ file, onProgress }) =>
-      uploadExpenseReceiptWithProgress(expenseId, file, { onProgress }),
+      uploadExpenseReceiptWithProgress(gid, eid, file, { onProgress }),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: expensesQueryKeys.detail(expenseId) });
+      void queryClient.invalidateQueries({ queryKey: expensesQueryKeys.detail(gid, eid) });
     },
   });
 }

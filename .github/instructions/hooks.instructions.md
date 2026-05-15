@@ -1,6 +1,6 @@
 ---
-description: "Use when writing, editing, or reviewing custom React hooks (use*.ts, use*.tsx). Enforces single-responsibility, effect cleanup, dependency arrays, and pure utility separation."
-applyTo: ["**/use*.ts", "**/use*.tsx", "**/hooks/**/*.ts", "**/hooks/**/*.tsx"]
+description: 'Use when writing, editing, or reviewing custom React hooks (use*.ts, use*.tsx). Enforces single-responsibility, effect cleanup, dependency arrays, and pure utility separation.'
+applyTo: ['**/use*.ts', '**/use*.tsx', '**/hooks/**/*.ts', '**/hooks/**/*.tsx']
 ---
 
 # Hooks & Effects Rules
@@ -39,8 +39,8 @@ useEffect(() => {
 const { phone, isPending } = useOtpFlowStore();
 
 // ✅ GOOD — narrow selector, only re-renders when that field changes
-const phone = useOtpFlowStore(s => s.phone);
-const isPending = useOtpFlowStore(s => s.isPending);
+const phone = useOtpFlowStore((s) => s.phone);
+const isPending = useOtpFlowStore((s) => s.isPending);
 ```
 
 ## Pure Utilities

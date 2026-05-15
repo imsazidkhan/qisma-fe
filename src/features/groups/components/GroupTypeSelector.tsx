@@ -1,86 +1,136 @@
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { memo, useCallback, type ReactElement } from 'react';
+import { memo, useCallback, useRef, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { createGroupScreenStyles as styles } from '@/features/groups/components/createGroupScreen.styles';
 import {
-  GROUP_TYPE_EMOJI,
+  GROUP_TYPE_GLYPH,
   GROUP_TYPE_ORDER,
   type GroupTypeId,
 } from '@/features/groups/constants/groupTypes';
-import { textStyles, typography, useThemeColors } from '@/theme';
+import { duration, platformShadow, useThemeColors } from '@/theme';
+
+const GROUP_TYPE_DOUBLE_TAP_MS = duration.moderate.ms;
 
 export type GroupTypeSelectorProps = {
-  value: GroupTypeId;
-  onChange: (id: GroupTypeId) => void;
+  value: GroupTypeId | null;
+  onChange: (id: GroupTypeId | null) => void;
 };
 
 function GroupTypeSelectorInner({ value, onChange }: GroupTypeSelectorProps): ReactElement {
   const { t } = useTranslation();
-  const palette = useThemeColors();
+  const p = useThemeColors();
+  const lastPressRef = useRef<{ id: GroupTypeId; at: number } | null>(null);
 
-  const handleSelect = useCallback(
+  const handleRowPress = useCallback(
     (id: GroupTypeId) => {
-      void Haptics.selectionAsync().catch(() => {});
-      onChange(id);
+      const now = Date.now();
+      const prev = lastPressRef.current;
+      if (
+        value === id &&
+        prev?.id === id &&
+        now - prev.at <= GROUP_TYPE_DOUBLE_TAP_MS
+      ) {
+        lastPressRef.current = null;
+        void Haptics.selectionAsync().catch(() => {});
+        onChange(null);
+        return;
+      }
+      lastPressRef.current = { id, at: now };
+      if (value !== id) {
+        void Haptics.selectionAsync().catch(() => {});
+        onChange(id);
+      }
     },
-    [onChange],
+    [onChange, value],
   );
 
   return (
-    <View style={styles.typeList}>
-      {GROUP_TYPE_ORDER.map((id, index) => {
-        const selected = value === id;
-        const isLast = index === GROUP_TYPE_ORDER.length - 1;
-        return (
-          <Pressable
-            key={id}
-            accessibilityRole="button"
-            accessibilityState={{ selected }}
-            accessibilityLabel={t(`createGroup.types.${id}`)}
-            onPress={() => handleSelect(id)}
-            style={({ pressed }) => [
-              styles.typeRow,
-              {
-                borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
-                borderBottomColor: palette.borderSubtle,
-                opacity: pressed ? 0.88 : 1,
-              },
-            ]}
-          >
+    <View collapsable={false} style={styles.typeListShell}>
+      <View collapsable={false} style={styles.typeStack}>
+        {GROUP_TYPE_ORDER.map((id, index) => {
+          const selected = value === id;
+          const isLast = index === GROUP_TYPE_ORDER.length - 1;
+          return (
             <View
-              style={[
-                styles.typeRowBar,
-                { backgroundColor: selected ? palette.accent : 'transparent' },
-              ]}
-            />
-            <View style={styles.typeRowMain}>
-              <Text
-                style={[styles.typeRowEmoji, { color: palette.textMuted }]}
-                accessibilityElementsHidden
-              >
-                {GROUP_TYPE_EMOJI[id]}
-              </Text>
-              <Text
-                style={[
-                  textStyles.body,
-                  {
-                    flex: 1,
-                    color: selected ? palette.textPrimary : palette.textSecondary,
-                    fontFamily: selected
-                      ? typography.fontFamily.sans.medium
-                      : typography.fontFamily.sans.regular,
-                  },
-                ]}
-                numberOfLines={1}
-              >
-                {t(`createGroup.types.${id}`)}
-              </Text>
+              key={id}
+              collapsable={false}
+              style={[styles.typeRowWrap, !isLast ? styles.typeCardSpacing : null]}
+            >
+              <View collapsable={false} style={styles.typeRowHitArea}>
+                <View
+                  collapsable={false}
+                  style={[
+                    styles.typeCard,
+                    {
+                      backgroundColor: selected ? p.createGroupCtaFill : p.surfaceBase,
+                      borderColor: selected ? p.createGroupCtaFill : p.borderSubtle,
+                    },
+                    selected ? null : platformShadow('sm'),
+                  ]}
+                >
+                  <View style={styles.typeIconBoxWrap}>
+                    <View
+                      style={[
+                        styles.typeIconBox,
+                        {
+                          borderColor: selected ? p.createGroupCtaContent : p.borderSubtle,
+                          backgroundColor: 'transparent',
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        color={
+                          selected ? p.createGroupCtaContent : p.iconSecondary
+                        }
+                        name={GROUP_TYPE_GLYPH[id]}
+                        size={22}
+                      />
+                    </View>
+                  </View>
+                  <View style={styles.typeTextCol}>
+                    <Text
+                      style={[
+                        styles.typeTitle,
+                        styles.typeTitleSpaced,
+                        { color: selected ? p.createGroupCtaContent : p.textPrimary },
+                      ]}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {t(`createGroup.types.${id}`)}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.typeDesc,
+                        {
+                          color: selected ? `${p.createGroupCtaContent}B3` : p.textSecondary,
+                        },
+                      ]}
+                      numberOfLines={2}
+                      ellipsizeMode="tail"
+                    >
+                      {t(`createGroup.typesDesc.${id}`)}
+                    </Text>
+                  </View>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  accessibilityLabel={`${t(`createGroup.types.${id}`)}. ${t(`createGroup.typesDesc.${id}`)}`}
+                  accessibilityHint={
+                    selected ? t('createGroup.typeDoubleTapClearHint') : undefined
+                  }
+                  onPress={() => handleRowPress(id)}
+                  style={[StyleSheet.absoluteFill, { zIndex: 1 }]}
+                />
+              </View>
             </View>
-          </Pressable>
-        );
-      })}
+          );
+        })}
+      </View>
     </View>
   );
 }

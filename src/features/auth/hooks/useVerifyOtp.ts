@@ -6,9 +6,7 @@ import { useCallback, useRef } from 'react';
 
 import { ApiError, CLIENT_ERROR_CODES } from '@/api';
 import { ANALYTICS_EVENTS } from '@/constants';
-import { groupsQueryKeys } from '@/features/groups/queryKeys';
 import { resolveSignedInPath } from '@/features/onboarding/services/resolveSignedInPath';
-import { useInvitesInboxReloadStore } from '@/features/invites/store/useInvitesInboxReloadStore';
 import { logger, track } from '@/services';
 import { createVerifyIdempotencyKey } from '@/utils';
 
@@ -16,6 +14,7 @@ import { getAuthMe } from '../api/authApi';
 import { verifyOtp } from '../api/otpApi';
 import { parseAuthServiceError } from '../api/parseAuthServiceError';
 import { authQueryKeys } from '../queryKeys';
+import { notifySessionTokensRefreshed } from '../sessionQueryRevalidation';
 import { saveAuthSession } from '../services/authSession';
 import { useAuthSessionStore } from '../store/useAuthSessionStore';
 import { useOtpFlowStore } from '../store/useOtpFlowStore';
@@ -57,9 +56,7 @@ export function useVerifyOtp() {
         logger.captureException(e, { tags: { phase: 'persist-session' } });
         throw e instanceof Error ? e : new Error('Failed to store session');
       }
-      resetFlow();
-      useInvitesInboxReloadStore.getState().bumpInvitesInboxReload();
-      void queryClient.invalidateQueries({ queryKey: groupsQueryKeys.myGroups });
+      notifySessionTokensRefreshed();
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       track(ANALYTICS_EVENTS.OTP_VERIFY_SUCCEEDED, { expiresIn: data.expiresIn });
 
@@ -80,6 +77,9 @@ export function useVerifyOtp() {
         useOfflineFallback: me === null,
       });
       router.replace(next as Href);
+      // Reset after navigation is scheduled so `/login` never briefly remounts
+      // `LoginFormCard` while `sent` → `idle` (avoids flash + fragile re-entry).
+      resetFlow();
     },
 
     onError: (error) => {

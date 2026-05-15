@@ -9,6 +9,8 @@ export type BackHeaderButtonProps = {
   onPress: () => void;
   accessibilityLabel: string;
   style?: StyleProp<ViewStyle>;
+  /** Outline chevron + softer ink — premium headers (e.g. expense detail). */
+  thinGlyph?: boolean;
 };
 
 /** Minimal chevron-back control for screen headers (matches create-group affordance). */
@@ -16,6 +18,7 @@ export function BackHeaderButton({
   onPress,
   accessibilityLabel,
   style,
+  thinGlyph = false,
 }: BackHeaderButtonProps): ReactElement {
   const palette = useThemeColors();
 
@@ -31,7 +34,7 @@ export function BackHeaderButton({
       style={[
         {
           alignSelf: 'flex-start',
-          marginLeft: -space.gapSm,
+          marginLeft: thinGlyph ? 0 : -space.gapSm,
           padding: space.gapSm,
           alignItems: 'center',
           justifyContent: 'center',
@@ -41,7 +44,11 @@ export function BackHeaderButton({
         style,
       ]}
     >
-      <Ionicons name="chevron-back" size={26} color={palette.iconPrimary} />
+      <Ionicons
+        color={thinGlyph ? palette.iconSecondary : palette.iconPrimary}
+        name={thinGlyph ? 'chevron-back-outline' : 'chevron-back'}
+        size={thinGlyph ? size.icon : 26}
+      />
     </Pressable>
   );
 }

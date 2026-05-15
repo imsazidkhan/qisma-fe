@@ -1,76 +1,133 @@
 import { StyleSheet } from 'react-native';
 
-import { radius, space, textStyles, typography } from '@/theme';
+import { radius, space, spacing, typography } from '@/theme';
 
-/** Sync `lead` frame — used to align ledger column with name text. */
-const LEAD_SIZE = 36;
+const LEAD_SIZE = 48;
+/** Body line under hero on cards — caption tier. */
+const CAPTION = 13;
 
 export const groupListCardStyles = StyleSheet.create({
-  /** Ledger row — identity → finance + activity cluster; calm mono status. */
   card: {
-    marginHorizontal: space.gapSm,
-    paddingVertical: space.gapMd,
-    paddingHorizontal: space.gapMd,
-    borderRadius: radius.xs,
+    paddingVertical: spacing['4'],
+    paddingLeft: spacing['3'],
+    paddingRight: spacing['4'],
+    borderRadius: radius.groupsCard,
     borderWidth: StyleSheet.hairlineWidth,
+    gap: 0,
+  },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
     gap: space.gapSm,
   },
-  identityRow: {
+  identityCluster: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: space.gapSm,
-  },
-  /** Optical nudge — aligns glyph block closer to title cap-height. */
-  lead: {
-    width: LEAD_SIZE,
-    height: LEAD_SIZE,
-    borderRadius: radius.xs,
-    borderWidth: StyleSheet.hairlineWidth,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    marginTop: space.gapXs,
-  },
-  leadImage: {
-    width: LEAD_SIZE,
-    height: LEAD_SIZE,
-    borderRadius: radius.xs,
-  },
-  glyph: {
-    fontSize: 18,
-    lineHeight: 22,
-  },
-  identityTextColumn: {
     flex: 1,
     minWidth: 0,
     gap: space.gapSm,
   },
-  groupName: {
-    fontFamily: typography.fontFamily.sans.medium,
-    fontSize: typography.fontSize.md,
-    letterSpacing: typography.letterSpacing.tight,
+  lead: {
+    width: LEAD_SIZE,
+    height: LEAD_SIZE,
+    borderRadius: radius.groupsLeadTile,
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
-  metaCaps: {
+  leadImage: {
+    width: LEAD_SIZE,
+    height: LEAD_SIZE,
+    borderRadius: radius.groupsLeadTile,
+  },
+  identityTextColumn: {
+    flex: 1,
+    minWidth: 0,
+    gap: spacing['2'],
+  },
+  recentExpenseLine: {
     fontFamily: typography.fontFamily.mono.regular,
     fontSize: typography.fontSize['2xs'],
+    fontWeight: typography.fontWeight.regular,
+    lineHeight: typography.fontSize['2xs'] * typography.lineHeight.normal,
     letterSpacing: typography.letterSpacing.wide,
-    textTransform: 'uppercase' as const,
   },
-  ledgerCluster: {
-    gap: space.gapSm,
-    marginLeft: LEAD_SIZE + space.gapSm,
+  groupName: {
+    fontFamily: typography.fontFamily.sans.semiBold,
+    fontSize: typography.fontSize.xl,
+    fontWeight: typography.fontWeight.semibold,
+    letterSpacing: typography.letterSpacing.tight,
+    lineHeight: typography.fontSize.xl * typography.lineHeight.tight,
   },
-  financeStatus: {
-    fontFamily: typography.fontFamily.mono.regular,
-    fontSize: typography.fontSize.lg,
-    letterSpacing: typography.letterSpacing.normal,
-    fontVariant: ['tabular-nums'],
-    lineHeight: typography.fontSize.lg * typography.lineHeight.snug,
-  },
-  activityLine: {
-    ...textStyles.captionSmall,
+  metaLine: {
     fontFamily: typography.fontFamily.sans.regular,
-    letterSpacing: typography.letterSpacing.normal,
-    textTransform: 'none' as const,
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.regular,
+    lineHeight: typography.fontSize.sm * typography.lineHeight.normal,
+  },
+  statusPill: {
+    maxWidth: '44%',
+    borderRadius: radius.full,
+    paddingHorizontal: spacing['2.5'],
+    minHeight: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: spacing['1'],
+  },
+  statusPillRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing['1'],
+  },
+  statusPillLabel: {
+    fontFamily: typography.fontFamily.sans.medium,
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.medium,
+    lineHeight: typography.fontSize.xs * typography.lineHeight.snug,
+  },
+  statusPillAmount: {
+    fontFamily: typography.fontFamily.sans.semiBold,
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semibold,
+    fontVariant: ['tabular-nums'] as const,
+    lineHeight: typography.fontSize.sm * typography.lineHeight.snug,
+    textAlign: 'center',
+  },
+  middleBlock: {
+    marginTop: spacing['4'],
+  },
+  middlePrimary: {
+    fontFamily: typography.fontFamily.sans.medium,
+    fontSize: typography.fontSize.md,
+    fontWeight: typography.fontWeight.medium,
+    lineHeight: typography.fontSize.md * typography.lineHeight.snug,
+  },
+  middleSecondary: {
+    fontFamily: typography.fontFamily.sans.regular,
+    fontSize: CAPTION,
+    fontWeight: typography.fontWeight.regular,
+    lineHeight: CAPTION * typography.lineHeight.normal,
+  },
+  footerMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    marginTop: spacing['4'],
+    gap: spacing['1.5'],
+  },
+  footerMetaText: {
+    flexShrink: 1,
+    fontFamily: typography.fontFamily.mono.regular,
+    fontSize: typography.fontSize['2xs'],
+    fontWeight: typography.fontWeight.regular,
+    lineHeight: typography.fontSize['2xs'] * typography.lineHeight.normal,
+    letterSpacing: typography.letterSpacing.ledgerCaption,
+  },
+  footerMetaSep: {
+    width: StyleSheet.hairlineWidth,
+    height: spacing['3'],
+    marginHorizontal: spacing['1'],
   },
 });

@@ -1,8 +1,11 @@
 export { fetchExpenseDetail } from './api/expenseDetailApi';
 export {
   createExpenseComment,
+  deleteExpenseComment,
+  listExpenseComments,
   mapExpenseCommentError,
   parseExpenseCommentResponse,
+  patchExpenseComment,
 } from './api/expenseCommentsApi';
 export {
   createExpenseReaction,
@@ -30,6 +33,7 @@ export {
   mapExpenseDeleteError,
   mapExpensePatchError,
   patchExpense,
+  type MappedExpenseCreateError,
 } from './api/expensesApi';
 export {
   fetchGroupExpenseFeedPage,
@@ -39,6 +43,34 @@ export {
   GroupExpenseFeedRow,
   type GroupExpenseFeedRowProps,
 } from './components/GroupExpenseFeedRow';
+export {
+  BalanceImpactChip,
+  CATEGORY_ICON_BUBBLE_SIZE,
+  CategoryIconBubble,
+  ExpenseCard,
+  ExpenseFeedMetaPill,
+  ExpenseFeedSummaryPill,
+  FrostedExpenseSurface,
+  MemberAvatarStack,
+  type BalanceImpactChipProps,
+  type CategoryIconBubbleProps,
+  type ExpenseCardProps,
+  type ExpenseFeedMetaPillProps,
+  type ExpenseFeedMetaPillTone,
+  type ExpenseFeedSummaryPillProps,
+  type FrostedExpenseSurfaceProps,
+  type MemberAvatarStackProps,
+} from './components/feedCard';
+export {
+  CommentComposer,
+  CommentReplies,
+  CommentRow,
+  ExpenseCommentsSection,
+  type CommentComposerProps,
+  type CommentRepliesProps,
+  type CommentRowProps,
+  type ExpenseCommentsSectionProps,
+} from './components/expenseComments';
 export {
   EXPENSE_COMMENT_CLIENT_CODES,
   EXPENSE_COMMENT_MESSAGE_MAX_LENGTH,
@@ -69,7 +101,13 @@ export {
   EXPENSE_FEED_ERROR_CODES,
   type ExpenseFeedErrorCode,
 } from './constants/errorCodes';
-export { useAddExpenseComment } from './hooks/useAddExpenseComment';
+export { useCreateExpenseComment } from './hooks/useCreateExpenseComment';
+export { useDeleteExpenseComment } from './hooks/useDeleteExpenseComment';
+export { useExpenseCommentsInfinite } from './hooks/useExpenseCommentsInfinite';
+export {
+  usePatchExpenseComment,
+  type PatchExpenseCommentVariables,
+} from './hooks/usePatchExpenseComment';
 export { useAddExpenseReaction } from './hooks/useAddExpenseReaction';
 export { useUploadExpenseReceipt } from './hooks/useUploadExpenseReceipt';
 export type { UploadExpenseReceiptVariables } from './hooks/useUploadExpenseReceipt';
@@ -89,6 +127,8 @@ export type {
   GroupExpenseFeedFilters,
   GroupExpenseFeedItem,
   GroupExpenseFeedPage,
+  ListExpensesQueryDto,
+  ExpenseFeedSortMode,
 } from './types/groupExpenseFeed.types';
 export type { ExpenseDetail } from './types/expenseDetail.types';
 export type {
@@ -118,7 +158,10 @@ export type {
 } from './types/expense.types';
 export { groupExpenseFeedPageSchema } from './types/groupExpenseFeed.types';
 export { stableExpenseFeedFiltersKey } from './utils/stableExpenseFeedFiltersKey';
-export { applyExpenseWriteToCaches } from './utils/applyExpenseWriteToCaches';
+export {
+  applyExpenseWriteToCaches,
+  type ApplyExpenseWriteContext,
+} from './utils/applyExpenseWriteToCaches';
 export {
   assertExpensePatchIncludesSplitWhenRequired,
   expenseAmountStringsEqual,
@@ -127,6 +170,10 @@ export {
 export { groupBalancesSnapshotToListBalance } from './utils/groupBalancesSnapshotToListBalance';
 export { formatExpenseMajorAmount } from './utils/formatExpenseMajorAmount';
 export { AddExpenseScreen, type AddExpenseScreenProps } from './screens/AddExpenseScreen';
+export {
+  ExpenseCommentsScreen,
+  type ExpenseCommentsScreenProps,
+} from './screens/ExpenseCommentsScreen';
 export {
   SplitExpenseLuxuryScreen,
   type SplitExpenseLuxuryScreenProps,

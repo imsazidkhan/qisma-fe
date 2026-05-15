@@ -74,7 +74,7 @@ export const ProfileSettingsRow = memo(function ProfileSettingsRow({
           ) : null}
           <View style={styles.rowChevronWrap}>
             {showChevron ? (
-              <Ionicons name="chevron-forward" size={20} color={palette.iconMuted} />
+              <Ionicons name="chevron-forward" size={22} color={palette.iconSecondary} />
             ) : null}
           </View>
         </View>

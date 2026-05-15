@@ -18,8 +18,10 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ApiError } from '@/api';
 import { useAuthMe } from '@/features/auth/hooks/useAuthMe';
-import { mapExpenseCreateError } from '@/features/expenses/api/expensesApi';
+import { mapExpenseCreateError, mapExpensePatchError } from '@/features/expenses/api/expensesApi';
+import { EXPENSE_DETAIL_ERROR_CODES } from '@/features/expenses/constants/errorCodes';
 import { AddPersonButton } from '@/features/expenses/components/addExpense/AddPersonButton';
 import { AmountHero } from '@/features/expenses/components/addExpense/AmountHero';
 import { FloatingCTA } from '@/features/expenses/components/addExpense/FloatingCTA';
@@ -34,6 +36,7 @@ import { SectionLabel } from '@/features/expenses/components/addExpense/SectionL
 import { SplitExpenseSheet } from '@/features/expenses/components/addExpense/SplitExpenseSheet';
 import { SplitPreviewCard } from '@/features/expenses/components/addExpense/SplitPreviewCard';
 
+import { useExpenseDetail } from '@/features/expenses/hooks/useExpenseDetail';
 import { useExpenseSplitState } from '@/features/expenses/hooks/useExpenseSplitState';
 import { useExpenseTitleClassify } from '@/features/expenses/hooks/useExpenseTitleClassify';
 import { useExpenseWrite } from '@/features/expenses/hooks/useExpenseWrite';
@@ -48,6 +51,12 @@ import {
 } from '@/features/expenses/utils/addExpenseSubmitReadiness';
 import { parseAmountToMinor } from '@/features/expenses/utils/amountParsing';
 import { buildCreateExpenseBodyFromForm } from '@/features/expenses/utils/buildCreateExpenseBodyFromForm';
+import { buildExpensePatchFromForm } from '@/features/expenses/utils/buildExpensePatchFromForm';
+import { assertExpensePatchIncludesSplitWhenRequired } from '@/features/expenses/utils/expensePatchRules';
+import { expenseStructuredPatchSnapshotFromWire } from '@/features/expenses/utils/expenseStructuredPatch';
+import { buildHydratedSplitSeed } from '@/features/expenses/utils/hydrateSplitSeedFromExpenseDetail';
+import { participantIdsFromExpenseDetail } from '@/features/expenses/utils/participantIdsFromExpenseDetail';
+import { readExpenseStructuredWire } from '@/features/expenses/utils/readExpenseStructuredWire';
 import { computeParticipantPreview } from '@/features/expenses/utils/computeParticipantPreview';
 import {
   validateLocalSplitForm,
@@ -72,7 +81,14 @@ import {
 export type AddExpenseScreenProps = {
   groupId: string;
   onClose: () => void;
+  /** When set, loads the expense and PATCHes on save (same UI as add). */
+  editExpenseId?: string;
 };
+
+function isExpenseNotFound(err: unknown): boolean {
+  if (!(err instanceof ApiError)) return false;
+  return err.code === EXPENSE_DETAIL_ERROR_CODES.EXPENSE_NOT_FOUND || err.status === 404;
+}
 
 function splitMainRowTitle(t: (k: string) => string, splitType: ExpenseSplitType): string {
   switch (splitType) {
@@ -103,7 +119,11 @@ function memberInitial(name: string): string {
   return (trimmed[0] ?? '?').toUpperCase();
 }
 
-export function AddExpenseScreen({ groupId, onClose }: AddExpenseScreenProps): ReactElement {
+export function AddExpenseScreen({
+  groupId,
+  onClose,
+  editExpenseId,
+}: AddExpenseScreenProps): ReactElement {
   const { t } = useTranslation();
   const palette = useThemeColors();
   const mode = useThemeMode();
@@ -113,6 +133,13 @@ export function AddExpenseScreen({ groupId, onClose }: AddExpenseScreenProps): R
   const rosterQuery = useGroupMembers(groupId, { enabled: isUuid(groupId) });
   const roster = useMemo(() => rosterQuery.data ?? [], [rosterQuery.data]);
 
+  const editId = editExpenseId?.trim() ?? '';
+  const isEdit = editId.length > 0;
+  const detailQuery = useExpenseDetail(isEdit ? groupId : undefined, isEdit ? editId : undefined, {
+    enabled: isEdit && isUuid(groupId) && isUuid(editId),
+  });
+  const detail = detailQuery.data;
+
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState('INR');
@@ -120,11 +147,11 @@ export function AddExpenseScreen({ groupId, onClose }: AddExpenseScreenProps): R
   const [paidByUserId, setPaidByUserId] = useState('');
   const [includedIds, setIncludedIds] = useState<string[]>([]);
   const [didSeed, setDidSeed] = useState(false);
-  const [expenseCategory, setExpenseCategory] = useState<string | undefined>(undefined);
   const [structuredDraft, setStructuredDraft] = useState<ExpenseStructuredDraft | null>(null);
   const [userCategoryOverride, setUserCategoryOverride] = useState(false);
   const [notes, setNotes] = useState('');
   const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [editHydrated, setEditHydrated] = useState(false);
 
   const classifyQuery = useExpenseTitleClassify(title);
   const classifyData = classifyQuery.data;
@@ -192,7 +219,13 @@ export function AddExpenseScreen({ groupId, onClose }: AddExpenseScreenProps): R
     lastExactSplitTotalBaselineRef.current = cur;
   }, [debouncedAmountMajor, includedIds, setExactByUserId, splitType]);
 
-  const writeTarget = useMemo(() => ({ mode: 'create' as const, groupId }), [groupId]);
+  const writeTarget = useMemo(
+    () =>
+      isEdit
+        ? { mode: 'edit' as const, groupId, expenseId: editId }
+        : { mode: 'create' as const, groupId },
+    [editId, groupId, isEdit],
+  );
   const saveMutation = useExpenseWrite(writeTarget);
   const { isOnline, isReady } = useNetworkStatus();
   const offline = isReady && !isOnline;
@@ -206,7 +239,19 @@ export function AddExpenseScreen({ groupId, onClose }: AddExpenseScreenProps): R
   const activeRoster = useMemo(() => roster.filter((r) => r.status === 'active'), [roster]);
   const activeRosterIds = useMemo(() => activeRoster.map((r) => r.id), [activeRoster]);
 
+  const editPatchBaseline = useMemo(
+    () =>
+      detail && isEdit
+        ? { amount: detail.amount, paidByUserId: detail.paidByUserId }
+        : { amount: '', paidByUserId: '' },
+    [detail, isEdit],
+  );
+
   useEffect(() => {
+    if (isEdit) {
+      setDidSeed(true);
+      return;
+    }
     if (didSeed || rosterQuery.isPending) return;
     setIncludedIds([...activeRosterIds]);
     if (activeRosterIds.length > 0) {
@@ -217,7 +262,41 @@ export function AddExpenseScreen({ groupId, onClose }: AddExpenseScreenProps): R
       }
     }
     setDidSeed(true);
-  }, [activeRosterIds, didSeed, me?.id, rosterQuery.isPending]);
+  }, [activeRosterIds, didSeed, isEdit, me?.id, rosterQuery.isPending]);
+
+  useEffect(() => {
+    if (!isEdit) {
+      setEditHydrated(false);
+      return;
+    }
+    if (!detail?.id) {
+      setEditHydrated(false);
+      return;
+    }
+    setEditHydrated(false);
+    setTitle(detail.title);
+    setAmount(detail.amount.replace(/,/g, ''));
+    setCurrency(detail.currency);
+    setDateYmd(detail.date);
+    const n = (detail as { notes?: unknown }).notes;
+    setNotes(typeof n === 'string' ? n : '');
+    setPaidByUserId(detail.paidByUserId);
+    setIncludedIds(participantIdsFromExpenseDetail(detail));
+    const wire = readExpenseStructuredWire(detail);
+    setStructuredDraft({ merchantId: wire.merchantId ?? undefined });
+
+    const tid = setTimeout(() => {
+      const seed = buildHydratedSplitSeed(detail);
+      setSplitType(seed.splitType);
+      setExactByUserId((prev) => ({ ...prev, ...seed.exactByUserId }));
+      setPercentByUserId((prev) => ({ ...prev, ...seed.percentByUserId }));
+      setSharesByUserId((prev) => ({ ...prev, ...seed.sharesByUserId }));
+      setEditHydrated(true);
+    }, 0);
+    return () => {
+      clearTimeout(tid);
+    };
+  }, [detail, isEdit, setExactByUserId, setPercentByUserId, setSharesByUserId, setSplitType]);
 
   useEffect(() => {
     if (includedIds.length === 0) return;
@@ -233,9 +312,9 @@ export function AddExpenseScreen({ groupId, onClose }: AddExpenseScreenProps): R
 
   useEffect(() => {
     if (!shouldAutofillCategory || !classifyData?.category || userCategoryOverride) return;
-    setExpenseCategory(classifyData.category.slug);
+    if (isEdit && !editHydrated) return;
     setStructuredDraft(expenseStructuredDraftFromClassify(classifyData));
-  }, [classifyData, shouldAutofillCategory, userCategoryOverride]);
+  }, [classifyData, editHydrated, isEdit, shouldAutofillCategory, userCategoryOverride]);
 
   const includedMembers = useMemo((): GroupMemberRosterEntry[] => {
     const set = new Set(includedIds);
@@ -346,10 +425,12 @@ export function AddExpenseScreen({ groupId, onClose }: AddExpenseScreenProps): R
 
   const groupTitle = groupQuery.data?.name ?? t('expenses.add.modern.groupFallback');
 
-  const headerTitle = useMemo(
-    () => `${t('expenses.add.modern.screenTitle').toUpperCase()} · ${groupTitle.toUpperCase()}`,
-    [groupTitle, t],
-  );
+  const headerTitle = useMemo(() => {
+    const screenKey = isEdit
+      ? 'expenses.add.modern.editScreenTitle'
+      : 'expenses.add.modern.screenTitle';
+    return `${t(screenKey).toUpperCase()} · ${groupTitle.toUpperCase()}`;
+  }, [groupTitle, isEdit, t]);
 
   const paidByContextLine =
     peopleCount <= 1
@@ -428,6 +509,47 @@ export function AddExpenseScreen({ groupId, onClose }: AddExpenseScreenProps): R
       return;
     }
     const d = dateYmd.trim();
+
+    if (isEdit) {
+      if (!detail) return;
+      if (!includedIds.includes(paidByUserId)) {
+        Alert.alert(t('expenses.edit.errorTitle'), t('expenses.add.validation.pickParticipants'));
+        return;
+      }
+      const wireSnap = readExpenseStructuredWire(detail);
+      const patch = buildExpensePatchFromForm({
+        detail,
+        title,
+        amountMajor: amountMajorNormalized,
+        paidByUserId,
+        date: d,
+        currency: currencyResolved,
+        notes,
+        split: splitPayloadResult.split,
+        structuredBaseline: expenseStructuredPatchSnapshotFromWire(wireSnap),
+        structuredDraft: {
+          merchantId: structuredDraft?.merchantId ?? wireSnap.merchantId ?? null,
+        },
+      });
+      try {
+        assertExpensePatchIncludesSplitWhenRequired(patch, editPatchBaseline);
+      } catch {
+        Alert.alert(t('expenses.edit.errorTitle'), t('expenses.edit.errorSplitFinancial'));
+        return;
+      }
+      saveMutation.mutate(patch, {
+        onSuccess: () => {
+          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+          onClose();
+        },
+        onError: (err) => {
+          const mapped = mapExpensePatchError(err);
+          Alert.alert(t(mapped.titleKey), t(mapped.messageKey));
+        },
+      });
+      return;
+    }
+
     const body = buildCreateExpenseBodyFromForm({
       title,
       amountMajor: amountMajorNormalized,
@@ -436,7 +558,6 @@ export function AddExpenseScreen({ groupId, onClose }: AddExpenseScreenProps): R
       currency: currencyResolved,
       notes,
       split: splitPayloadResult.split,
-      category: expenseCategory,
       structured: structuredDraft,
     });
     saveMutation.mutate(body, {
@@ -445,16 +566,19 @@ export function AddExpenseScreen({ groupId, onClose }: AddExpenseScreenProps): R
         onClose();
       },
       onError: (err) => {
-        const { titleKey, messageKey } = mapExpenseCreateError(err);
-        Alert.alert(t(titleKey), t(messageKey));
+        const mapped = mapExpenseCreateError(err);
+        Alert.alert(t(mapped.titleKey), mapped.messagePlain ?? t(mapped.messageKey));
       },
     });
   }, [
     amountMajorNormalized,
     currencyResolved,
     dateYmd,
-    expenseCategory,
+    detail,
+    editPatchBaseline,
     groupId,
+    includedIds,
+    isEdit,
     notes,
     offline,
     onClose,
@@ -488,7 +612,110 @@ export function AddExpenseScreen({ groupId, onClose }: AddExpenseScreenProps): R
     );
   }
 
-  if (rosterQuery.isPending && !didSeed) {
+  if (isEdit) {
+    if (!isUuid(editId)) {
+      return (
+        <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: palette.background }}>
+          <View style={{ padding: space.screenPadding }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('expenses.add.modern.closeA11y')}
+              accessibilityHint={t('expenses.add.modern.closeHint')}
+              onPress={onClose}
+              hitSlop={12}
+            >
+              <Ionicons name="close" size={26} color={palette.textPrimary} />
+            </Pressable>
+            <Text style={{ marginTop: space.gapLg, color: palette.textSecondary }}>
+              {t('expenses.detail.notFoundBody')}
+            </Text>
+          </View>
+        </SafeAreaView>
+      );
+    }
+
+    if (detailQuery.isPending || rosterQuery.isPending || !editHydrated) {
+      return (
+        <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: palette.background }}>
+          <View style={{ padding: space.screenPadding, flex: 1 }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('expenses.add.modern.closeA11y')}
+              onPress={onClose}
+              hitSlop={12}
+            >
+              <Ionicons name="close" size={26} color={palette.textPrimary} />
+            </Pressable>
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+              <ActivityIndicator color={palette.accent} />
+            </View>
+          </View>
+        </SafeAreaView>
+      );
+    }
+
+    if (detailQuery.isError && isExpenseNotFound(detailQuery.error)) {
+      return (
+        <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: palette.background }}>
+          <View style={{ padding: space.screenPadding }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('expenses.add.modern.closeA11y')}
+              onPress={onClose}
+              hitSlop={12}
+            >
+              <Ionicons name="close" size={26} color={palette.textPrimary} />
+            </Pressable>
+            <Text style={{ marginTop: space.gapLg, color: palette.textSecondary }}>
+              {t('expenses.detail.notFoundBody')}
+            </Text>
+          </View>
+        </SafeAreaView>
+      );
+    }
+
+    if (detailQuery.isError || !detail) {
+      return (
+        <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: palette.background }}>
+          <View style={{ padding: space.screenPadding }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('expenses.add.modern.closeA11y')}
+              onPress={onClose}
+              hitSlop={12}
+            >
+              <Ionicons name="close" size={26} color={palette.textPrimary} />
+            </Pressable>
+            <Text style={{ marginTop: space.gapLg, color: palette.textSecondary }}>
+              {t('expenses.edit.loadError')}
+            </Text>
+          </View>
+        </SafeAreaView>
+      );
+    }
+
+    if (detail.groupId.trim() !== groupId.trim()) {
+      return (
+        <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: palette.background }}>
+          <View style={{ padding: space.screenPadding }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('expenses.add.modern.closeA11y')}
+              onPress={onClose}
+              hitSlop={12}
+            >
+              <Ionicons name="close" size={26} color={palette.textPrimary} />
+            </Pressable>
+            <Text style={{ marginTop: space.gapLg, color: palette.textSecondary }}>
+              {t('expenses.detail.notFoundBody')}
+            </Text>
+          </View>
+        </SafeAreaView>
+      );
+    }
+  }
+
+  if (!isEdit && rosterQuery.isPending && !didSeed) {
     return (
       <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: palette.background }}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -999,8 +1226,22 @@ export function AddExpenseScreen({ groupId, onClose }: AddExpenseScreenProps): R
           >
             <FloatingCTA
               fill="ink"
-              label={t('expenses.add.submit')}
-              accessibilityLabel={t('expenses.add.submitA11y')}
+              label={
+                isEdit
+                  ? saveMutation.isPending
+                    ? t('expenses.edit.submitting')
+                    : t('expenses.edit.cta')
+                  : saveMutation.isPending
+                    ? t('expenses.add.submitting')
+                    : t('expenses.add.submit')
+              }
+              accessibilityLabel={
+                isEdit
+                  ? saveMutation.isPending
+                    ? t('expenses.edit.submitting')
+                    : t('expenses.edit.ctaA11y')
+                  : t('expenses.add.submitA11y')
+              }
               disabled={footerInteractDisabled}
               loading={saveMutation.isPending}
               borderRadius={radius.xl}

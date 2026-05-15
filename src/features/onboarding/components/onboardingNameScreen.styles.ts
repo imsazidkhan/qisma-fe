@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-import { radius, space, textStyles, typography } from '@/theme';
+import { radius, size, space, textStyles, typography, zIndex } from '@/theme';
 
 export const onboardingNameScreenStyles = StyleSheet.create({
   safe: {
@@ -13,7 +13,7 @@ export const onboardingNameScreenStyles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: space.screenPadding,
     paddingTop: space.gapMd,
-    paddingBottom: space.sectionGap,
+    paddingBottom: 0,
   },
   topBar: {
     flexDirection: 'row',
@@ -23,6 +23,7 @@ export const onboardingNameScreenStyles = StyleSheet.create({
   },
   scroll: {
     flex: 1,
+    minHeight: 0,
   },
   scrollContent: {
     flexGrow: 1,
@@ -75,13 +76,47 @@ export const onboardingNameScreenStyles = StyleSheet.create({
     minWidth: 44,
     textAlign: 'right',
   },
-  footer: {
+  footerDock: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: zIndex.raised,
+    paddingHorizontal: space.screenPadding,
     gap: space.gap,
     paddingTop: space.gap,
   },
-  hairline: {
-    height: 1,
-    width: '100%',
-    opacity: 0.85,
+  footerCtaAlign: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+  },
+  footerCtaHit: {
+    paddingVertical: space.gapSm,
+    paddingHorizontal: space.gapMd,
+    minHeight: size.touchMin,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  footerCtaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space.gapSm,
+  },
+  footerCtaLabel: {
+    fontFamily: typography.fontFamily.mono.medium,
+    fontSize: typography.fontSize.sm,
+    letterSpacing: typography.letterSpacing.widest,
+    textTransform: 'uppercase',
+  },
+  footerCtaArrow: {
+    fontFamily: typography.fontFamily.mono.regular,
+    fontSize: typography.fontSize.lg,
+    lineHeight: typography.fontSize.lg,
+  },
+  footerCtaMeta: {
+    fontFamily: typography.fontFamily.mono.regular,
+    fontSize: typography.fontSize.xs,
+    letterSpacing: typography.letterSpacing.wide,
   },
 });

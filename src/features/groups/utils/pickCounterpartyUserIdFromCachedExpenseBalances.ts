@@ -58,7 +58,7 @@ export function pickCounterpartyUserIdFromCachedExpenseBalances(
   }
 
   const viewer = queryClient.getQueryData<GroupViewerBalancesPayload>(
-    groupsQueryKeys.balances(groupId),
+    groupsQueryKeys.balances(groupId, currentUserId),
   );
   const fromDedicated = pickCounterpartyFromViewerBalances(viewer, tone);
   if (fromDedicated) {
@@ -71,6 +71,10 @@ export function pickCounterpartyUserIdFromCachedExpenseBalances(
   for (const query of queryClient.getQueryCache().getAll()) {
     const key = query.queryKey;
     if (key[0] !== 'expenses' || key[1] !== 'detail') {
+      continue;
+    }
+    const keyGroupId = key[2];
+    if (typeof keyGroupId !== 'string' || keyGroupId !== groupId) {
       continue;
     }
     const data = query.state.data as

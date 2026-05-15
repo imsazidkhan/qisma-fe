@@ -68,7 +68,7 @@ export const profileScreenStyles = StyleSheet.create({
   },
   editProfileBtn: {
     marginTop: space.gapLg,
-    minWidth: 168,
+    minWidth: 200,
     paddingHorizontal: space.gapLg,
     alignSelf: 'center',
   },
@@ -181,9 +181,14 @@ export const profileScreenStyles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     marginLeft: PROFILE_ROW_ICON_BOX + space.gapMd,
   },
-  signOutWrap: {
-    marginTop: space.sectionGapLg,
-    marginBottom: space.gapLg,
-    alignSelf: 'stretch',
+  /** Profile hero — centered under display name. */
+  signOutPressable: {
+    alignSelf: 'center',
+    marginTop: space.gapSm,
+    paddingVertical: space.gapSm,
+    paddingHorizontal: space.gapMd,
+  },
+  signOutLabel: {
+    fontFamily: typography.fontFamily.sans.medium,
   },
 });

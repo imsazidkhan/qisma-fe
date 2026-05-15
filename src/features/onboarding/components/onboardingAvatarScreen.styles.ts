@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-import { radius, space, textStyles, typography } from '@/theme';
+import { radius, size, space, textStyles, typography, zIndex } from '@/theme';
 
 export const onboardingAvatarScreenStyles = StyleSheet.create({
   safe: {
@@ -13,7 +13,7 @@ export const onboardingAvatarScreenStyles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: space.screenPadding,
     paddingTop: space.gapMd,
-    paddingBottom: space.sectionGap,
+    paddingBottom: 0,
   },
   topBar: {
     flexDirection: 'row',
@@ -85,32 +85,47 @@ export const onboardingAvatarScreenStyles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: space.gapSm,
   },
-  footer: {
-    marginTop: 'auto',
+  footerDock: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: zIndex.raised,
+    paddingHorizontal: space.screenPadding,
     gap: space.gap,
     paddingTop: space.gap,
   },
-  hairline: {
-    height: 1,
-    width: '100%',
-    opacity: 0.85,
+  footerCtaAlign: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
   },
-  secondaryActions: {
-    flexDirection: 'row',
+  footerCtaHit: {
+    paddingVertical: space.gapSm,
+    paddingHorizontal: space.gapMd,
+    minHeight: size.touchMin,
     justifyContent: 'center',
-    gap: space.gapMd,
+    alignItems: 'center',
   },
-  dangerSkipAction: {
-    alignSelf: 'center',
-    paddingVertical: space.gapXs,
-    paddingHorizontal: space.gapSm,
+  footerCtaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space.gapSm,
   },
-  dangerSkipActionPressed: {
-    opacity: 0.72,
+  footerCtaLabel: {
+    fontFamily: typography.fontFamily.mono.medium,
+    fontSize: typography.fontSize.sm,
+    letterSpacing: typography.letterSpacing.widest,
+    textTransform: 'uppercase',
   },
-  dangerSkipText: {
-    ...textStyles.caption,
-    textAlign: 'center',
+  footerCtaArrow: {
+    fontFamily: typography.fontFamily.mono.regular,
+    fontSize: typography.fontSize.lg,
+    lineHeight: typography.fontSize.lg,
+  },
+  footerCtaMeta: {
+    fontFamily: typography.fontFamily.mono.regular,
+    fontSize: typography.fontSize.xs,
     letterSpacing: typography.letterSpacing.wide,
   },
 });

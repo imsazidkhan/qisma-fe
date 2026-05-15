@@ -1,10 +1,18 @@
 import type { GroupMemberRosterEntry } from '@/features/groups/types/groupMember.types';
+import { DEFAULT_PHONE_REGION } from '@/constants';
+import { tryNormalizeToE164 } from '@/utils';
 
 export const ADD_MEMBER_INVITE_ROW_STATES = ['add', 'invited', 'member', 'pending'] as const;
 export type AddMemberInviteRowState = (typeof ADD_MEMBER_INVITE_ROW_STATES)[number];
 
 function rosterEntryToInviteRowState(entry: GroupMemberRosterEntry): 'member' | 'pending' {
   return entry.status === 'pending' ? 'pending' : 'member';
+}
+
+function normalizeInvitePhoneKey(raw: string): string {
+  const t = raw.trim();
+  const n = tryNormalizeToE164(t, DEFAULT_PHONE_REGION);
+  return n ?? t;
 }
 
 function normalizeUsername(username: string): string {
@@ -35,10 +43,12 @@ function findRosterByIdentifier(
   roster: GroupMemberRosterEntry[] | undefined,
   e164: string,
 ): GroupMemberRosterEntry | undefined {
-  return roster?.find((r) => {
+  if (!roster?.length) return undefined;
+  const needle = normalizeInvitePhoneKey(e164);
+  return roster.find((r) => {
     const id = r.identifier?.trim();
     if (!id) return false;
-    return id === e164;
+    return normalizeInvitePhoneKey(id) === needle;
   });
 }
 
@@ -79,6 +89,9 @@ export function resolvePhoneInviteRowState(
 ): AddMemberInviteRowState {
   const entry = findRosterByIdentifier(roster, e164);
   if (entry) return rosterEntryToInviteRowState(entry);
-  if (sessionInvitedPhones.has(e164)) return 'invited';
+  const needle = normalizeInvitePhoneKey(e164);
+  for (const p of sessionInvitedPhones) {
+    if (normalizeInvitePhoneKey(p) === needle) return 'invited';
+  }
   return 'add';
 }

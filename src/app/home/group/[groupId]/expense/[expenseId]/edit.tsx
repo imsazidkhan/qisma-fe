@@ -1,7 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, type ReactElement } from 'react';
 
-import { EditExpenseScreen } from '@/features/expenses/screens/EditExpenseScreen';
+import { AddExpenseScreen } from '@/features/expenses/screens/AddExpenseScreen';
 
 function resolvedParam(value: string | string[] | undefined): string {
   if (typeof value === 'string') {
@@ -31,5 +31,5 @@ export default function GroupEditExpenseRoute(): ReactElement {
     );
   }, [expenseId, groupId]);
 
-  return <EditExpenseScreen expenseId={expenseId} groupId={groupId} onBack={onBack} />;
+  return <AddExpenseScreen editExpenseId={expenseId} groupId={groupId} onClose={onBack} />;
 }

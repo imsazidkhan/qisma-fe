@@ -86,27 +86,8 @@ export function useCompleteAvatarOnboarding() {
     [mutation],
   );
 
-  const skip = useCallback(() => {
-    console.log('sazid');
-    if (inFlightRef.current || mutation.isPending) return;
-    const accessToken = useAuthSessionStore.getState().accessToken;
-    if (accessToken) {
-      setAvatarStepOnboardingComplete(accessToken);
-    }
-    void (async () => {
-      try {
-        await refreshStoredSession();
-      } catch (e) {
-        logger.captureException(e, { tags: { phase: 'refresh-after-avatar-skip' } });
-      }
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      router.replace('/onboarding/use-case' as Href);
-    })();
-  }, [mutation.isPending]);
-
   return {
     submitWithPicked,
-    skip,
     isPending: mutation.isPending,
     mutation,
   };

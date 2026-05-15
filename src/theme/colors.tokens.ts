@@ -40,6 +40,41 @@ export const colors = {
   /** Premium floating panels — soft tint, not flat `sheetBackground`. */
   premiumCardSurface: '#141414',
 
+  /** Expense detail thread tab canvas — graphite void behind conversation (~ #0B0B0C). */
+  expenseDetailThreadCanvas: '#0B0B0C',
+
+  /** Nothing-style floating thread composer (matte graphite shell ~ #151517). */
+  threadComposerSurface: '#151517',
+  threadComposerBorder: 'rgba(255,255,255,0.06)',
+  threadComposerBorderFocus: 'rgba(255,255,255,0.14)',
+  /** Top inner hairline luminance (~ inset 1px rgba(255,255,255,0.03)+). */
+  threadComposerInsetLine: 'rgba(255,255,255,0.04)',
+  threadComposerIcon: 'rgba(255,255,255,0.38)',
+  threadComposerPlaceholder: 'rgba(255,255,255,0.42)',
+  /** Send control — monochrome; avoid accent slabs on send. */
+  threadComposerSendIdle: '#1C1C1E',
+  threadComposerSendActive: '#2E2E32',
+
+  /**
+   * **Balances** — editorial screen canvas (warm paper in light, deep neutral in dark).
+   */
+  balancesCanvas: '#080807',
+
+  /**
+   * Hub ambient search — flush with `balancesCanvas` at rest; slight lift on focus.
+   */
+  ambientSearchFill: '#080807',
+  ambientSearchFillFocused: 'rgba(255,255,255,0.07)',
+  ambientSearchBorder: 'rgba(255,255,255,0)',
+  ambientSearchBorderFocused: 'rgba(255,255,255,0.10)',
+  ambientSearchPlaceholder: 'rgba(255,255,255,0.34)',
+  ambientSearchFilterScrim: 'rgba(255,255,255,0)',
+
+  /** Create-group primary CTA — ink slab on dark / light canvases. */
+  createGroupCtaFill: '#000000',
+  /** Label + glyphs on `createGroupCtaFill`. */
+  createGroupCtaContent: '#FFFFFF',
+
   // Backward compatibility (numeric variants).
   surface: '#0A0A0A',
   surface2: '#121212',
@@ -56,6 +91,8 @@ export const colors = {
 
   textLabel: '#BDBDBD',
   textMono: '#D6D6D6',
+  /** Thread message body — restrained vs `textPrimary` on graphite. */
+  expenseThreadBubbleText: '#C4C4C6',
 
   // ICONS / GLYPHS
   glyph: '#FFFFFF',
@@ -74,6 +111,8 @@ export const colors = {
 
   borderDivider: '#1A1A1A',
   borderInteractive: '#3A3A3A',
+  /** Premium frosted panels / invite cards — spec-aligned neutral hairline on dark. */
+  borderFrost: '#2A2A2A',
 
   // INTERACTIVE
   interactive: '#1A1A1A',
@@ -165,6 +204,34 @@ export const colors = {
   socialRing3: '#4A3044',
   socialRing4: '#274A45',
 
+  /** Muted taxonomy washes for expense-feed rows — glanceable Splitwise-ish chips over Nothing OS mono. */
+  expenseFeedCategoryTintFood: 'rgba(255,166,114,0.14)',
+  expenseFeedCategoryIconFood: '#FFB890',
+  expenseFeedCategoryTintTravel: 'rgba(130,164,242,0.16)',
+  expenseFeedCategoryIconTravel: '#9FB6FA',
+  expenseFeedCategoryTintShopping: 'rgba(214,174,247,0.14)',
+  expenseFeedCategoryIconShopping: '#D4BDF5',
+  expenseFeedCategoryTintEntertainment: 'rgba(255,150,209,0.13)',
+  expenseFeedCategoryIconEntertainment: '#FFA7D9',
+  expenseFeedCategoryTintDefault: 'rgba(124,140,255,0.14)',
+  expenseFeedCategoryIconDefault: '#94A6FF',
+  expenseFeedMetaChipSurface: 'rgba(152,162,179,0.10)',
+  expenseFeedMetaChipBorder: 'rgba(152,162,179,0.18)',
+  /** Expense wallet slab — optional top inner sheen (paired with horizontal fade). */
+  expenseWalletInnerSheen: 'rgba(255,255,255,0.055)',
+  /** Ledger hub section rail (“EXPENSES”) — muted uppercase ink. */
+  expenseLedgerSectionInk: '#98989D',
+  /** Compact ledger feed card — Wallet × Linear slab hairlines & copy tiers. */
+  expenseLedgerCardHairline: 'rgba(255,255,255,0.038)',
+  expenseLedgerCategoryDockBg: '#1C1E24',
+  expenseLedgerCategoryHairline: '#2E3038',
+  expenseLedgerSubtitleInk: '#98989E',
+  expenseLedgerMetaInk: '#8E8E94',
+  expenseLedgerFooterInk: '#929298',
+  expenseLedgerFooterGlyph: '#9A9AA0',
+  expenseLedgerChevron: '#7C7C82',
+  expenseLedgerOverflowBubble: '#2A2C32',
+  expenseLedgerOverflowInk: '#C4C4CA',
   /**
    * **Invite / add-members sheet** — social-first surfaces (light = airy gray canvas).
    */
@@ -178,6 +245,11 @@ export const colors = {
   inviteSuccess: '#34D399',
   inviteSuccessFg: '#FFFFFF',
   inviteSuccessSoft: 'rgba(52,211,153,0.22)',
+
+  /** Lastbench floating tab rail — idle/active ink + dock hairline (dark). */
+  floatingTabInkIdle: '#98989D',
+  floatingTabInkActive: '#FAFAFA',
+  floatingTabRailHairline: '#2C2C2E',
 } as const;
 
 /**
@@ -215,6 +287,34 @@ export const colorsLight: Record<keyof typeof colors, string> = {
   sheetBackground: '#FAFAFA',
   premiumCardSurface: '#EBEBEB',
 
+  expenseDetailThreadCanvas: '#EFF0F4',
+
+  threadComposerSurface: '#E8E8EA',
+  threadComposerBorder: 'rgba(0,0,0,0.10)',
+  threadComposerBorderFocus: 'rgba(0,0,0,0.20)',
+  threadComposerInsetLine: 'rgba(255,255,255,0.55)',
+  threadComposerIcon: 'rgba(10,10,10,0.38)',
+  threadComposerPlaceholder: 'rgba(10,10,10,0.42)',
+  threadComposerSendIdle: '#D8D8DA',
+  threadComposerSendActive: '#0A0A0A',
+
+  balancesCanvas: '#F6F6F4',
+
+  /**
+   * Hub ambient search — white slab on warm `balancesCanvas`; border/shadow on focus.
+   */
+  ambientSearchFill: '#FFFFFF',
+  ambientSearchFillFocused: '#FFFFFF',
+  ambientSearchBorder: 'rgba(0,0,0,0)',
+  ambientSearchBorderFocused: 'rgba(0,0,0,0.055)',
+  ambientSearchPlaceholder: 'rgba(10,10,10,0.30)',
+  ambientSearchFilterScrim: 'rgba(0,0,0,0)',
+
+  /** Create-group primary CTA — pure black anchor. */
+  createGroupCtaFill: '#000000',
+  /** Label + glyphs on `createGroupCtaFill`. */
+  createGroupCtaContent: '#FFFFFF',
+
   surface: '#FFFFFF',
   surface2: '#FAFAFA',
   surface3: '#F5F5F5',
@@ -231,6 +331,7 @@ export const colorsLight: Record<keyof typeof colors, string> = {
 
   textLabel: '#3F3F3F',
   textMono: '#2A2A2A',
+  expenseThreadBubbleText: '#454545',
 
   // ICONS / GLYPHS
   glyph: '#000000',
@@ -249,6 +350,7 @@ export const colorsLight: Record<keyof typeof colors, string> = {
 
   borderDivider: '#E5E5E5',
   borderInteractive: '#C8C8C8',
+  borderFrost: '#C8C8C8',
 
   // INTERACTIVE
   interactive: '#F5F5F5',
@@ -321,7 +423,8 @@ export const colorsLight: Record<keyof typeof colors, string> = {
   statusBarLight: '#FFFFFF',
   statusBarDark: '#000000',
 
-  groupHubBackground: '#EDEFF5',
+  /** Ledger-first hub canvas (~ #F5F6FA spec alignment). */
+  groupHubBackground: '#F5F6FA',
   groupHubCard: '#FFFFFF',
   groupHubBorder: 'rgba(15,17,21,0.09)',
   groupHubMuted: '#5C6678',
@@ -335,14 +438,43 @@ export const colorsLight: Record<keyof typeof colors, string> = {
   socialRing3: '#F0D8E8',
   socialRing4: '#D0E8E3',
 
-  inviteCanvas: '#F7F8FA',
-  inviteSurface: '#FFFFFF',
-  inviteBorder: '#EAECEF',
-  inviteMuted: '#98A2B3',
+  expenseFeedCategoryTintFood: 'rgba(234,118,62,0.12)',
+  expenseFeedCategoryIconFood: '#EA580C',
+  expenseFeedCategoryTintTravel: 'rgba(79,142,237,0.12)',
+  expenseFeedCategoryIconTravel: '#2563EB',
+  expenseFeedCategoryTintShopping: 'rgba(168,85,247,0.11)',
+  expenseFeedCategoryIconShopping: '#9333EA',
+  expenseFeedCategoryTintEntertainment: 'rgba(244,114,182,0.11)',
+  expenseFeedCategoryIconEntertainment: '#DB2777',
+  expenseFeedCategoryTintDefault: 'rgba(92,111,214,0.12)',
+  expenseFeedCategoryIconDefault: '#5C6FD6',
+  expenseFeedMetaChipSurface: 'rgba(15,23,42,0.05)',
+  expenseFeedMetaChipBorder: 'rgba(15,23,42,0.08)',
+  expenseWalletInnerSheen: 'rgba(255,255,255,0.62)',
+  expenseLedgerSectionInk: '#7B7B82',
+  expenseLedgerCardHairline: 'rgba(15,17,21,0.038)',
+  expenseLedgerCategoryDockBg: '#FAFAFA',
+  expenseLedgerCategoryHairline: '#F3F3F4',
+  expenseLedgerSubtitleInk: '#7D7D82',
+  expenseLedgerMetaInk: '#8A8A90',
+  expenseLedgerFooterInk: '#9A9AA1',
+  expenseLedgerFooterGlyph: '#A5A5AB',
+  expenseLedgerChevron: '#B5B5BB',
+  expenseLedgerOverflowBubble: '#F3F3F5',
+  expenseLedgerOverflowInk: '#55555B',
+
+  inviteCanvas: '#F5F5F3',
+  inviteSurface: '#FAFAF8',
+  inviteBorder: '#E7E7E2',
+  inviteMuted: '#7A7974',
   inviteAccent: '#6366F1',
   inviteAccentSoft: 'rgba(99,102,241,0.10)',
   inviteSegmentTrack: '#EEF0F4',
   inviteSuccess: '#059669',
   inviteSuccessFg: '#FFFFFF',
   inviteSuccessSoft: 'rgba(5,150,105,0.14)',
+
+  floatingTabInkIdle: '#8E8E93',
+  floatingTabInkActive: '#111111',
+  floatingTabRailHairline: '#F1F1F1',
 };

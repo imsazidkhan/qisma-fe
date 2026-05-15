@@ -49,8 +49,11 @@ export function buildGroupExpenseFeedSearchParams(
   const limitClamped = Math.min(LIMIT_MAX, Math.max(LIMIT_MIN, Math.floor(limit)));
   search.set('limit', String(limitClamped));
 
+  appendIfDefined(search, 'sort', filters.sort);
+
   appendIfDefined(search, 'q', filters.q);
   appendIfDefined(search, 'category', filters.category);
+  appendIfDefined(search, 'categoryId', filters.categoryId);
   appendUuidCsv(search, 'categoryIds', filters.categoryIds);
   appendUuidCsv(search, 'subcategoryIds', filters.subcategoryIds);
   appendUuidCsv(search, 'merchantIds', filters.merchantIds);
@@ -66,8 +69,8 @@ export function buildGroupExpenseFeedSearchParams(
   appendIfDefined(search, 'metaTimeOfDay', filters.metaTimeOfDay);
   appendIfDefined(search, 'paidByUserId', filters.paidByUserId);
   appendIfDefined(search, 'createdByUserId', filters.createdByUserId);
-  appendIfDefined(search, 'dateFrom', filters.dateFrom);
-  appendIfDefined(search, 'dateTo', filters.dateTo);
+  appendIfDefined(search, 'fromDate', filters.fromDate ?? filters.dateFrom);
+  appendIfDefined(search, 'toDate', filters.toDate ?? filters.dateTo);
   appendIfDefined(search, 'currency', filters.currency);
   appendIfDefined(search, 'splitType', filters.splitType);
   if (filters.includeDeleted === true) {
@@ -77,8 +80,25 @@ export function buildGroupExpenseFeedSearchParams(
   return search.toString();
 }
 
-export function parseGroupExpenseFeedPage(data: unknown): GroupExpenseFeedPage {
-  const row = groupExpenseFeedPageSchema.safeParse(data);
+function normalizeExpenseFeedPageWire(raw: unknown): unknown {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return raw;
+  const o = raw as Record<string, unknown>;
+  if (Array.isArray(o.items)) return raw;
+  if (Array.isArray(o.expenses)) return { ...o, items: o.expenses };
+  return raw;
+}
+
+export type ParseGroupExpenseFeedPageOpts = {
+  /** When rows omit `groupId`, fill from the route param (group-scoped feed only). */
+  defaultGroupId?: string;
+};
+
+export function parseGroupExpenseFeedPage(
+  data: unknown,
+  opts?: ParseGroupExpenseFeedPageOpts,
+): GroupExpenseFeedPage {
+  const normalized = normalizeExpenseFeedPageWire(data);
+  const row = groupExpenseFeedPageSchema.safeParse(normalized);
   if (!row.success) {
     throw new ApiError({
       code: CLIENT_ERROR_CODES.PARSE_ERROR,
@@ -87,7 +107,20 @@ export function parseGroupExpenseFeedPage(data: unknown): GroupExpenseFeedPage {
       details: row.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`),
     });
   }
-  return row.data;
+  const fallbackGroupId = opts?.defaultGroupId?.trim();
+  const items = row.data.items.map((item, index) => {
+    const gid = item.groupId?.trim() ? item.groupId : fallbackGroupId;
+    if (!gid) {
+      throw new ApiError({
+        code: CLIENT_ERROR_CODES.PARSE_ERROR,
+        message: 'Invalid expense feed response shape.',
+        status: 0,
+        details: [`items.${String(index)}.groupId: missing`],
+      });
+    }
+    return { ...item, groupId: gid };
+  });
+  return { ...row.data, items };
 }
 
 export async function fetchGroupExpenseFeedPage(
@@ -98,5 +131,5 @@ export async function fetchGroupExpenseFeedPage(
   const qs = buildGroupExpenseFeedSearchParams(args.filters, args.cursor);
   const path = `${ENDPOINTS.expenses.groupFeed(groupId)}?${qs}`;
   const raw = await apiFetch<unknown>(path, { method: 'GET', signal });
-  return parseGroupExpenseFeedPage(raw);
+  return parseGroupExpenseFeedPage(raw, { defaultGroupId: groupId });
 }

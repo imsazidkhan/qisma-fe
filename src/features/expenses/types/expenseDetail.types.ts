@@ -2,17 +2,71 @@ import { z } from 'zod';
 
 const looseObject = z.record(z.string(), z.unknown());
 
+function unwrapExpenseDetailPayload(raw: unknown): unknown {
+  if (raw === null || typeof raw !== 'object') return raw;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.id === 'string' && o.id.trim() !== '') return raw;
+  const expense = o.expense;
+  if (
+    typeof expense === 'object' &&
+    expense !== null &&
+    typeof (expense as Record<string, unknown>).id === 'string'
+  ) {
+    return expense;
+  }
+  const data = o.data;
+  if (
+    typeof data === 'object' &&
+    data !== null &&
+    typeof (data as Record<string, unknown>).id === 'string'
+  ) {
+    return data;
+  }
+  return raw;
+}
+
+/** Normalize payer id from Veloraq `paidByUserId` or embedded `paidBy.id`. */
+function coerceExpenseDetailPaidByUserId(raw: unknown): unknown {
+  const u = unwrapExpenseDetailPayload(raw);
+  if (u === null || typeof u !== 'object') return u;
+  const o = { ...(u as Record<string, unknown>) };
+  const trimmedPaidBy = typeof o.paidByUserId === 'string' ? o.paidByUserId.trim() : '';
+  if (trimmedPaidBy !== '') {
+    o.paidByUserId = trimmedPaidBy;
+    return o;
+  }
+  const pb = o.paidBy;
+  if (typeof pb === 'object' && pb !== null) {
+    const id = (pb as Record<string, unknown>).id;
+    if (typeof id === 'string' && id.trim() !== '') {
+      o.paidByUserId = id.trim();
+      return o;
+    }
+  }
+  return o;
+}
+
+const looseRowArray = z.preprocess(
+  (v) => (v === undefined || v === null ? [] : v),
+  z.array(looseObject),
+);
+
 const expenseDetailSchema = z
   .object({
-    id: z.string().uuid(),
-    groupId: z.string().uuid(),
-    title: z.string(),
-    amount: z.string(),
-    currency: z.string().length(3),
+    /** Backend may use non-RFC variants — keep validation shallow like the expense feed. */
+    id: z.string().min(1),
+    groupId: z.string().min(1),
+    title: z.preprocess((v) => (v === undefined || v === null ? '' : v), z.coerce.string()),
+    amount: z.union([z.string(), z.number(), z.bigint()]).transform((a) => String(a)),
+    currency: z.coerce
+      .string()
+      .transform((s) => s.trim().toUpperCase())
+      .pipe(z.string().length(3)),
     date: z.string(),
-    paidByUserId: z.string().uuid(),
+    paidByUserId: z.string().min(1),
     createdAt: z.string().optional(),
-    category: z.string().optional(),
+    /** Legacy label string or Veloraq `{ primary, secondary }` envelope — validated downstream. */
+    category: z.unknown().optional(),
     categoryId: z.union([z.string(), z.null()]).optional(),
     subcategoryId: z.union([z.string(), z.null()]).optional(),
     merchantId: z.union([z.string(), z.null()]).optional(),
@@ -30,18 +84,19 @@ const expenseDetailSchema = z
     expenseDayOfWeek: z.number().optional(),
     expenseHour: z.number().optional(),
     taxonomyTags: z.array(looseObject).optional(),
-    participants: z.array(looseObject).default([]),
-    comments: z.array(looseObject).default([]),
-    reactions: z.array(looseObject).default([]),
-    attachments: z.array(looseObject).default([]),
-    history: z.array(looseObject).default([]),
+    participants: looseRowArray.default([]),
+    comments: looseRowArray.default([]),
+    reactions: looseRowArray.default([]),
+    attachments: looseRowArray.default([]),
+    history: looseRowArray.default([]),
   })
   .passthrough();
 
 export type ExpenseDetail = z.infer<typeof expenseDetailSchema>;
 
 export function parseExpenseDetail(data: unknown): ExpenseDetail {
-  const parsed = expenseDetailSchema.safeParse(data);
+  const normalized = coerceExpenseDetailPaidByUserId(data);
+  const parsed = expenseDetailSchema.safeParse(normalized);
   if (!parsed.success) {
     const { issues } = parsed.error;
     throw new Error(

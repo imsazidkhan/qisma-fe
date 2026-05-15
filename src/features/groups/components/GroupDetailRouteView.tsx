@@ -39,7 +39,7 @@ export function GroupDetailRouteView({
     useCallback(() => {
       void refetch();
       if (fetchMembersRoster) {
-        void queryClient.invalidateQueries({ queryKey: groupsQueryKeys.balances(groupId) });
+        void queryClient.invalidateQueries({ queryKey: groupsQueryKeys.balancesPrefix(groupId) });
       }
     }, [fetchMembersRoster, groupId, queryClient, refetch]),
   );
@@ -65,7 +65,7 @@ export function GroupDetailRouteView({
     void queryClient.removeQueries({ queryKey: groupsQueryKeys.creatorDetail(groupId) });
     void queryClient.removeQueries({ queryKey: groupsQueryKeys.members(groupId) });
     void queryClient.removeQueries({ queryKey: groupsQueryKeys.groupActivity(groupId) });
-    void queryClient.removeQueries({ queryKey: groupsQueryKeys.balances(groupId) });
+    void queryClient.removeQueries({ queryKey: groupsQueryKeys.balancesPrefix(groupId) });
     void queryClient.invalidateQueries({ queryKey: groupsQueryKeys.myGroups });
     onBack();
   }, [groupId, onBack, queryClient]);

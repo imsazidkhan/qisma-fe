@@ -5,6 +5,7 @@ import { Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BackHeaderButton } from '@/components/ui';
+import { hrefGroupDetail } from '@/constants/routes';
 import { AddGroupMembersScreen } from '@/features/groups/components/AddGroupMembersScreen';
 import { groupDetailRouteStyles as styles } from '@/features/groups/components/groupDetailRoute.styles';
 import { isUuid } from '@/features/groups/utils/isUuid';
@@ -19,22 +20,23 @@ function resolvedParam(value: string | string[] | undefined): string {
 export default function HomeGroupAddMembersRoute(): ReactElement {
   const { t } = useTranslation();
   const palette = useThemeColors();
-  const { groupId: rawId, userId: rawInviteUserId } = useLocalSearchParams<{
+  const { groupId: rawId } = useLocalSearchParams<{
     groupId: string | string[];
-    userId?: string | string[];
   }>();
 
   const groupId = useMemo(() => resolvedParam(rawId), [rawId]);
-  const inviteUserIdParam = resolvedParam(rawInviteUserId);
-  const inviteUserId = isUuid(inviteUserIdParam) ? inviteUserIdParam : undefined;
 
   const onBack = useCallback(() => {
     if (router.canGoBack()) {
       router.back();
       return;
     }
+    if (isUuid(groupId)) {
+      router.replace(hrefGroupDetail(groupId));
+      return;
+    }
     router.replace('/home');
-  }, []);
+  }, [groupId]);
 
   if (!isUuid(groupId)) {
     return (
@@ -60,5 +62,5 @@ export default function HomeGroupAddMembersRoute(): ReactElement {
     );
   }
 
-  return <AddGroupMembersScreen groupId={groupId} onBack={onBack} initialUserId={inviteUserId} />;
+  return <AddGroupMembersScreen groupId={groupId} onBack={onBack} />;
 }

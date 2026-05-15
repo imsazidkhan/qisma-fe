@@ -189,6 +189,7 @@ async function buildExpenseReceiptFormData(
 }
 
 async function xhrPostExpenseReceiptEnvelope(
+  groupId: string,
   expenseId: string,
   form: FormData,
   options: {
@@ -198,7 +199,7 @@ async function xhrPostExpenseReceiptEnvelope(
   },
 ): Promise<unknown> {
   const { signal, timeoutMs, onProgress } = options;
-  const url = `${apiBaseUrl()}${ENDPOINTS.expenses.receipts(expenseId)}`;
+  const url = `${apiBaseUrl()}${ENDPOINTS.expenses.groupExpenseReceipts(groupId, expenseId)}`;
 
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -328,6 +329,7 @@ async function xhrPostExpenseReceiptEnvelope(
  * Same as {@link uploadExpenseReceipt} but reports upload progress (`0..1`) via `onProgress` when the runtime exposes it.
  */
 export async function uploadExpenseReceiptWithProgress(
+  groupId: string,
   expenseId: string,
   file: UploadExpenseReceiptFile,
   options?: { signal?: AbortSignal; onProgress?: (ratio: number) => void },
@@ -338,7 +340,7 @@ export async function uploadExpenseReceiptWithProgress(
   }
   const form = await buildExpenseReceiptFormData(file, options?.signal);
   options?.onProgress?.(0);
-  const raw = await xhrPostExpenseReceiptEnvelope(expenseId, form, {
+  const raw = await xhrPostExpenseReceiptEnvelope(groupId, expenseId, form, {
     signal: options?.signal,
     timeoutMs: 120_000,
     onProgress: options?.onProgress,
@@ -347,10 +349,11 @@ export async function uploadExpenseReceiptWithProgress(
 }
 
 /**
- * `POST /v1/expenses/:id/receipts` — multipart field **`file`**.
+ * `POST /v1/groups/:groupId/expenses/:expenseId/receipts` — multipart field **`file`**.
  * Allowed: JPEG, PNG, WebP, GIF, PDF — max **20 MB** (enforced on server; client validates when size is known).
  */
 export async function uploadExpenseReceipt(
+  groupId: string,
   expenseId: string,
   file: UploadExpenseReceiptFile,
   signal?: AbortSignal,
@@ -360,7 +363,7 @@ export async function uploadExpenseReceipt(
   }
 
   const form = await buildExpenseReceiptFormData(file, signal);
-  const raw = await apiFetch<unknown>(ENDPOINTS.expenses.receipts(expenseId), {
+  const raw = await apiFetch<unknown>(ENDPOINTS.expenses.groupExpenseReceipts(groupId, expenseId), {
     method: 'POST',
     body: form,
     signal,

@@ -1,16 +1,16 @@
-import { router } from 'expo-router';
 import { useCallback, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FlatList, ListRenderItem, RefreshControl, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BackHeaderButton, Button } from '@/components/ui';
-import { ROUTES } from '@/constants/routes';
+import { Button } from '@/components/ui';
 
 import { ActivityFeedRow } from '@/features/activity/components/ActivityFeedRow';
 import { ActivityFeedSkeleton } from '@/features/activity/components/ActivityFeedSkeleton';
 import { useActivityFeed } from '@/features/activity/hooks/useActivityFeed';
 import type { ActivityFeedItem } from '@/features/activity/types/activityFeed.types';
+import { HomeDashboardHeader } from '@/features/home/components/HomeDashboardHeader';
+import { useHomeDashboardHeaderController } from '@/features/home/hooks/useHomeDashboardHeaderController';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { space, textStyles, useThemeColors } from '@/theme';
 
@@ -23,6 +23,7 @@ export function ActivityFeedScreen({
 }: ActivityFeedScreenProps): ReactElement {
   const { t } = useTranslation();
   const palette = useThemeColors();
+  const { headerProps } = useHomeDashboardHeaderController();
   const { isOnline, isReady } = useNetworkStatus();
   const { items, refetchAll, isInitialLoading, isRefreshing, isFatalError } = useActivityFeed();
 
@@ -38,18 +39,9 @@ export function ActivityFeedScreen({
 
   const listHeader = (
     <>
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: space.gapMd }}>
-        <BackHeaderButton
-          onPress={() => router.navigate(ROUTES.HOME)}
-          accessibilityLabel={t('common.backToHomeA11y')}
-        />
-        <View style={{ flex: 1 }} />
-      </View>
-      <View style={{ gap: space.gapSm, marginBottom: space.gapMd }}>
-        <Text
-          style={[textStyles.displaySmall, { color: palette.textPrimary }]}
-          accessibilityRole="header"
-        >
+      <HomeDashboardHeader {...headerProps} />
+      <View style={{ gap: space.gapSm, marginBottom: space.gapMd, marginTop: space.gapSm }}>
+        <Text style={[textStyles.displaySmall, { color: palette.textPrimary }]}>
           {t('activityTab.title')}
         </Text>
         <Text style={[textStyles.body, { color: palette.textSecondary }]}>
@@ -71,8 +63,8 @@ export function ActivityFeedScreen({
   );
 
   const paddedContentStyle = {
-    paddingHorizontal: space.screenPadding,
-    paddingTop: space.sectionGap,
+    paddingHorizontal: space.screenPaddingLg,
+    paddingTop: space.paddingMd,
     paddingBottom: contentPaddingBottom,
   } as const;
 
@@ -142,8 +134,8 @@ export function ActivityFeedScreen({
         }
         contentContainerStyle={{
           flexGrow: 1,
-          paddingHorizontal: space.screenPadding,
-          paddingTop: space.sectionGap,
+          paddingHorizontal: space.screenPaddingLg,
+          paddingTop: space.paddingMd,
           paddingBottom: contentPaddingBottom,
           gap: space.gap,
         }}

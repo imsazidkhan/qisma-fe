@@ -2,20 +2,20 @@
 
 Expense splitting for groups. Built with Expo Router + React Native, designed in the spirit of Nothing OS — monochrome, industrial, typography-first.
 
-| | |
-| --- | --- |
-| Expo SDK | 54 |
-| React Native | 0.81 |
-| React | 19 |
-| TypeScript | 5.9 (strict, `noUncheckedIndexedAccess`) |
-| Router | Expo Router (typed routes) |
-| Styling | NativeWind 4 + theme tokens |
-| Server state | TanStack Query 5 |
-| Client state | Zustand 5 |
-| Forms | react-hook-form + zod |
-| Storage | MMKV (general), expo-secure-store (auth tokens) |
-| OTA | hot-updater |
-| Crash / analytics | Firebase (optional) |
+|                   |                                                 |
+| ----------------- | ----------------------------------------------- |
+| Expo SDK          | 54                                              |
+| React Native      | 0.81                                            |
+| React             | 19                                              |
+| TypeScript        | 5.9 (strict, `noUncheckedIndexedAccess`)        |
+| Router            | Expo Router (typed routes)                      |
+| Styling           | NativeWind 4 + theme tokens                     |
+| Server state      | TanStack Query 5                                |
+| Client state      | Zustand 5                                       |
+| Forms             | react-hook-form + zod                           |
+| Storage           | MMKV (general), expo-secure-store (auth tokens) |
+| OTA               | hot-updater                                     |
+| Crash / analytics | Firebase (optional)                             |
 
 ---
 
@@ -40,11 +40,11 @@ pnpm web            # web target (limited support)
 
 All public env vars are prefixed `EXPO_PUBLIC_*` so they are inlined by Metro.
 
-| Var | Required | Default | Notes |
-| --- | --- | --- | --- |
-| `EXPO_PUBLIC_API_BASE_URL` | release | auto (dev) | Auth-service origin. `/v1` is appended automatically. In dev, falls back to `localhost:3000` / `10.0.2.2:3000` / Expo `hostUri`. |
-| `EXPO_PUBLIC_HOT_UPDATER_BASE_URL` | no | — | Enables `@hot-updater/react-native` when set. |
-| `EXPO_PUBLIC_HOT_UPDATER_CHANNEL` | no | `production` | OTA channel for hot-updater. |
+| Var                                | Required | Default      | Notes                                                                                                                            |
+| ---------------------------------- | -------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| `EXPO_PUBLIC_API_BASE_URL`         | release  | auto (dev)   | Auth-service origin. `/v1` is appended automatically. In dev, falls back to `localhost:3000` / `10.0.2.2:3000` / Expo `hostUri`. |
+| `EXPO_PUBLIC_HOT_UPDATER_BASE_URL` | no       | —            | Enables `@hot-updater/react-native` when set.                                                                                    |
+| `EXPO_PUBLIC_HOT_UPDATER_CHANNEL`  | no       | `production` | OTA channel for hot-updater.                                                                                                     |
 
 Create `.env.local` (gitignored) for local overrides:
 
@@ -112,13 +112,13 @@ Format on save is fine; `pnpm format` rewrites the tree with Prettier.
 
 ## Scripts
 
-| Command | What it does |
-| --- | --- |
-| `pnpm start` | Expo dev server |
-| `pnpm ios` / `pnpm android` / `pnpm web` | Run on a target |
-| `pnpm lint` | ESLint (Expo + Prettier configs) |
-| `pnpm format` / `pnpm format:check` | Prettier write / verify |
-| `pnpm reset-project` | Wipe local Expo state (`scripts/reset-project.js`) |
+| Command                                  | What it does                                       |
+| ---------------------------------------- | -------------------------------------------------- |
+| `pnpm start`                             | Expo dev server                                    |
+| `pnpm ios` / `pnpm android` / `pnpm web` | Run on a target                                    |
+| `pnpm lint`                              | ESLint (Expo + Prettier configs)                   |
+| `pnpm format` / `pnpm format:check`      | Prettier write / verify                            |
+| `pnpm reset-project`                     | Wipe local Expo state (`scripts/reset-project.js`) |
 
 ---
 

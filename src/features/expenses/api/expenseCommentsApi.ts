@@ -1,45 +1,19 @@
-import { ApiError, apiFetch, CLIENT_ERROR_CODES, ENDPOINTS } from '@/api';
+import { ApiError, CLIENT_ERROR_CODES } from '@/api/ApiError';
+import { apiFetch } from '@/api/apiFetch';
+import { ENDPOINTS } from '@/api/endpoints';
 import {
   EXPENSE_COMMENT_CLIENT_CODES,
   validateExpenseCommentMessage,
 } from '@/features/expenses/constants/expenseComment';
 import {
   parseExpenseCommentEntry,
+  parseListExpenseCommentsResponse,
   type AddExpenseCommentRequestBody,
+  type DeleteExpenseCommentResponse,
   type ExpenseCommentEntry,
+  type ListExpenseCommentsResponse,
+  type PatchExpenseCommentRequestBody,
 } from '@/features/expenses/types/expenseComment.types';
-
-const MOCK_FLAG = process.env.EXPO_PUBLIC_MOCK_EXPENSES === '1';
-
-function randomUuid(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}
-
-async function mockCreateExpenseComment(
-  expenseId: string,
-  body: AddExpenseCommentRequestBody,
-): Promise<ExpenseCommentEntry> {
-  void expenseId;
-  await new Promise((r) => setTimeout(r, 280));
-  const now = new Date().toISOString();
-  const userId = '00000000-0000-4000-8000-000000000099';
-  return {
-    id: randomUuid(),
-    userId,
-    message: body.message,
-    createdAt: now,
-    author: {
-      id: userId,
-      name: 'You',
-      username: 'you',
-      avatar: null,
-    },
-  };
-}
 
 function throwInvalidCommentMessage(
   code: (typeof EXPENSE_COMMENT_CLIENT_CODES)[keyof typeof EXPENSE_COMMENT_CLIENT_CODES],
@@ -67,6 +41,134 @@ export function parseExpenseCommentResponse(data: unknown): ExpenseCommentEntry 
   }
 }
 
+export type ListExpenseCommentsParams = {
+  groupId: string;
+  expenseId: string;
+  parentCommentId?: string | null;
+  cursor?: string | null;
+  limit?: number;
+  /** Omit → `desc` (newest first on page 1; cursor returns older pages). */
+  sort?: 'asc' | 'desc';
+  signal?: AbortSignal;
+};
+
+export async function listExpenseComments(
+  params: ListExpenseCommentsParams,
+): Promise<ListExpenseCommentsResponse> {
+  const gid = params.groupId.trim();
+  const eid = params.expenseId.trim();
+  const sp = new URLSearchParams();
+  if (params.cursor !== undefined && params.cursor !== null && params.cursor !== '') {
+    sp.set('cursor', params.cursor);
+  }
+  if (params.limit !== undefined) {
+    sp.set('limit', String(params.limit));
+  }
+  const sort = params.sort ?? 'desc';
+  sp.set('sort', sort);
+  const parent = params.parentCommentId?.trim();
+  if (parent) {
+    sp.set('parentCommentId', parent);
+  }
+  const qs = sp.toString();
+  const path = `${ENDPOINTS.expenses.groupExpenseComments(gid, eid)}${qs ? `?${qs}` : ''}`;
+  const raw = await apiFetch<unknown>(path, {
+    method: 'GET',
+    signal: params.signal,
+  });
+  try {
+    return parseListExpenseCommentsResponse(raw);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Invalid expense comments list shape.';
+    throw new ApiError({
+      code: CLIENT_ERROR_CODES.PARSE_ERROR,
+      message,
+      status: 0,
+    });
+  }
+}
+
+export async function createExpenseComment(
+  groupId: string,
+  expenseId: string,
+  body: AddExpenseCommentRequestBody,
+  signal?: AbortSignal,
+): Promise<ExpenseCommentEntry> {
+  const validated = validateExpenseCommentMessage(body.message);
+  if (!validated.ok) {
+    throwInvalidCommentMessage(validated.code);
+  }
+  const payload: Record<string, string> = { message: validated.message };
+  const parent = body.parentCommentId?.trim();
+  if (parent) payload.parentCommentId = parent;
+
+  const raw = await apiFetch<unknown>(
+    ENDPOINTS.expenses.groupExpenseComments(groupId.trim(), expenseId.trim()),
+    {
+      method: 'POST',
+      body: payload,
+      signal,
+    },
+  );
+  return parseExpenseCommentResponse(raw);
+}
+
+export async function patchExpenseComment(
+  groupId: string,
+  expenseId: string,
+  commentId: string,
+  body: PatchExpenseCommentRequestBody,
+  signal?: AbortSignal,
+): Promise<ExpenseCommentEntry> {
+  const validated = validateExpenseCommentMessage(body.message);
+  if (!validated.ok) {
+    throwInvalidCommentMessage(validated.code);
+  }
+  const raw = await apiFetch<unknown>(
+    ENDPOINTS.expenses.groupExpenseComment(groupId.trim(), expenseId.trim(), commentId.trim()),
+    {
+      method: 'PATCH',
+      body: { message: validated.message },
+      signal,
+    },
+  );
+  return parseExpenseCommentResponse(raw);
+}
+
+export async function deleteExpenseComment(
+  groupId: string,
+  expenseId: string,
+  commentId: string,
+  signal?: AbortSignal,
+): Promise<DeleteExpenseCommentResponse> {
+  const raw = await apiFetch<unknown>(
+    ENDPOINTS.expenses.groupExpenseComment(groupId.trim(), expenseId.trim(), commentId.trim()),
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (raw === null || typeof raw !== 'object') {
+    throw new ApiError({
+      code: CLIENT_ERROR_CODES.PARSE_ERROR,
+      message: 'Invalid delete expense comment response.',
+      status: 0,
+    });
+  }
+  const o = raw as Record<string, unknown>;
+  const cid = typeof o.commentId === 'string' ? o.commentId : '';
+  const deletedAt = typeof o.deletedAt === 'string' ? o.deletedAt : '';
+  if (cid === '' || deletedAt === '') {
+    throw new ApiError({
+      code: CLIENT_ERROR_CODES.PARSE_ERROR,
+      message: 'Delete expense comment response missing commentId/deletedAt.',
+      status: 0,
+    });
+  }
+  return { commentId: cid, deletedAt };
+}
+
+/** Maps client-side validation errors for alerts (legacy send-comment UI). */
 export function mapExpenseCommentError(err: unknown): { titleKey: string; messageKey: string } {
   if (err instanceof ApiError) {
     if (err.code === EXPENSE_COMMENT_CLIENT_CODES.EMPTY) {
@@ -90,31 +192,4 @@ export function mapExpenseCommentError(err: unknown): { titleKey: string; messag
     titleKey: 'expenses.comments.errorTitle',
     messageKey: 'expenses.comments.errorGeneric',
   };
-}
-
-/**
- * `POST /v1/expenses/:id/comments` — body `{ message }` (trimmed, non-empty, max length enforced).
- * Success is typically **201**; response `data` is `ExpenseCommentEntryDto`.
- */
-export async function createExpenseComment(
-  expenseId: string,
-  body: AddExpenseCommentRequestBody,
-  signal?: AbortSignal,
-): Promise<ExpenseCommentEntry> {
-  const validated = validateExpenseCommentMessage(body.message);
-  if (!validated.ok) {
-    throwInvalidCommentMessage(validated.code);
-  }
-  const payload: AddExpenseCommentRequestBody = { message: validated.message };
-
-  if (MOCK_FLAG) {
-    return mockCreateExpenseComment(expenseId, payload);
-  }
-
-  const raw = await apiFetch<unknown>(ENDPOINTS.expenses.comments(expenseId), {
-    method: 'POST',
-    body: payload,
-    signal,
-  });
-  return parseExpenseCommentResponse(raw);
 }

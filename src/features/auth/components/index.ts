@@ -1,5 +1,5 @@
 export { OtpCodeField, type OtpCodeFieldProps } from './OtpCodeField';
-export { PhoneInput, type PhoneInputProps } from './PhoneInput';
+export { PhoneInput, phoneInputLoginPreset, type PhoneInputProps } from './PhoneInput';
 export {
   LoginFlowBanner,
   LoginFootnote,

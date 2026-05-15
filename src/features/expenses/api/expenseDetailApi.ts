@@ -18,10 +18,11 @@ export function parseExpenseDetailResponse(data: unknown): ExpenseDetail {
 }
 
 export async function fetchExpenseDetail(
+  groupId: string,
   expenseId: string,
   signal?: AbortSignal,
 ): Promise<ExpenseDetail> {
-  const raw = await apiFetch<unknown>(ENDPOINTS.expenses.detail(expenseId), {
+  const raw = await apiFetch<unknown>(ENDPOINTS.expenses.groupExpense(groupId, expenseId), {
     method: 'GET',
     signal,
   });

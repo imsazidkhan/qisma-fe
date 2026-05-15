@@ -113,6 +113,18 @@ export const groupDetailScreenStyles = StyleSheet.create({
     letterSpacing: typography.letterSpacing.widest,
     alignSelf: 'stretch',
   },
+  /** Ledger rail (“EXPENSES”) — Wallet × Linear uppercase track. */
+  expenseLedgerSectionTitle: {
+    marginTop: spacing['6'],
+    marginBottom: spacing['3'] + spacing['0.5'],
+    alignSelf: 'stretch',
+    fontFamily: typography.fontFamily.sans.semiBold,
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semibold,
+    lineHeight: spacing['4'] + spacing['0.5'],
+    letterSpacing: typography.letterSpacing.expenseLedgerSection,
+    textTransform: 'uppercase',
+  },
   quickActionsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',

@@ -20,7 +20,7 @@ export function groupBalancesSnapshotToListBalance(
     return { tone: 'settled', amountMinor: 0, currency };
   }
 
-  const raw = snapshot.netByUserId[currentUserId];
+  const raw = snapshot.netByUserId?.[currentUserId];
   if (raw === undefined || String(raw).trim() === '') {
     return { tone: 'settled', amountMinor: 0, currency };
   }
@@ -42,7 +42,7 @@ export function groupBalancesSnapshotToListBalance(
 }
 
 function pickCurrency(snapshot: GroupBalancesSnapshot, fallback: string): string {
-  const e = snapshot.edges[0];
+  const e = snapshot.edges?.[0];
   const c = e?.currency?.trim();
   if (c) {
     return c;

@@ -1,10 +1,13 @@
+import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  ActivityIndicator,
   Keyboard,
   KeyboardAvoidingView,
+  LayoutChangeEvent,
   Platform,
   Pressable,
   ScrollView,
@@ -37,8 +40,9 @@ export function OnboardingAvatarScreen() {
   const { isOnline, isReady } = useNetworkStatus();
   const [picked, setPicked] = useState<PickedAvatar | null>(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
+  const [footerDockHeight, setFooterDockHeight] = useState(140);
 
-  const { submitWithPicked, skip, isPending, mutation } = useCompleteAvatarOnboarding();
+  const { submitWithPicked, isPending, mutation } = useCompleteAvatarOnboarding();
 
   useEnsureSignedInPath(SIGNED_IN_PATHS.ONBOARDING_AVATAR);
 
@@ -75,6 +79,21 @@ export function OnboardingAvatarScreen() {
   const continueDisabled = !picked || !isOnline || isPending || !isReady;
   const showOffline = isReady && !isOnline;
 
+  const onFooterDockLayout = useCallback((e: LayoutChangeEvent) => {
+    const { height } = e.nativeEvent.layout;
+    setFooterDockHeight((prev) => (Math.abs(prev - height) < 0.5 ? prev : height));
+  }, []);
+
+  const ctaLabelColor = continueDisabled ? palette.textMuted : palette.textPrimary;
+
+  const onContinuePress = useCallback(() => {
+    if (continueDisabled) return;
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {
+      /* best-effort */
+    });
+    handleContinue();
+  }, [continueDisabled, handleContinue]);
+
   return (
     <SafeAreaView
       edges={['top', 'bottom']}
@@ -92,7 +111,10 @@ export function OnboardingAvatarScreen() {
 
           <ScrollView
             style={styles.scroll}
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={[
+              styles.scrollContent,
+              { paddingBottom: footerDockHeight + space.sectionGapSm },
+            ]}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="interactive"
             showsVerticalScrollIndicator={false}
@@ -160,63 +182,66 @@ export function OnboardingAvatarScreen() {
             </View>
           </ScrollView>
 
-          <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, space.gapSm) }]}>
-            <View style={[styles.hairline, { backgroundColor: palette.borderSubtle }]} />
-
-            <Button
-              variant="primary"
-              label={
-                isPending
-                  ? t('auth.avatar.uploading', { defaultValue: AUTH_AVATAR.uploading })
-                  : t('auth.avatar.continue', { defaultValue: AUTH_AVATAR.continue })
-              }
-              loading={isPending}
-              disabled={continueDisabled}
-              onPress={handleContinue}
-              trailing="none"
-              labelCase="none"
-              accessibilityHint={t('auth.avatar.a11y.continueHint', {
-                defaultValue: AUTH_AVATAR.a11y.continueHint,
-              })}
-              haptic
-            />
-
-            <View style={styles.secondaryActions}>
-              <Button
-                variant="secondary"
-                label={t('auth.avatar.skip', { defaultValue: AUTH_AVATAR.skip })}
-                onPress={skip}
-                disabled={isPending}
-                trailing="none"
-                labelCase="none"
-                accessibilityHint={t('auth.avatar.a11y.skipHint', {
-                  defaultValue: AUTH_AVATAR.a11y.skipHint,
-                })}
-                haptic
-              />
+          <View
+            onLayout={onFooterDockLayout}
+            style={[
+              styles.footerDock,
+              {
+                backgroundColor: palette.background,
+                paddingBottom: Math.max(insets.bottom, space.gapSm),
+              },
+            ]}
+          >
+            <View style={styles.footerCtaAlign}>
+              {isPending ? (
+                <View
+                  style={styles.footerCtaRow}
+                  accessibilityLabel={t('auth.avatar.uploading', {
+                    defaultValue: AUTH_AVATAR.uploading,
+                  })}
+                  accessibilityRole="progressbar"
+                >
+                  <ActivityIndicator size="small" color={palette.textSecondary} />
+                  <Text
+                    style={[styles.footerCtaMeta, { color: palette.textMuted }]}
+                    accessibilityElementsHidden
+                  >
+                    {t('auth.avatar.uploading', { defaultValue: AUTH_AVATAR.uploading })}
+                  </Text>
+                </View>
+              ) : (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('auth.avatar.continue', {
+                    defaultValue: AUTH_AVATAR.continue,
+                  })}
+                  accessibilityHint={t('auth.avatar.a11y.continueHint', {
+                    defaultValue: AUTH_AVATAR.a11y.continueHint,
+                  })}
+                  accessibilityState={{ disabled: continueDisabled }}
+                  disabled={continueDisabled}
+                  hitSlop={12}
+                  onPress={onContinuePress}
+                  style={({ pressed }) => [
+                    styles.footerCtaHit,
+                    { opacity: continueDisabled ? 1 : pressed ? 0.55 : 1 },
+                  ]}
+                >
+                  <View style={styles.footerCtaRow}>
+                    <Text style={[styles.footerCtaLabel, { color: ctaLabelColor }]}>
+                      {t('auth.avatar.continue', { defaultValue: AUTH_AVATAR.continue })}
+                    </Text>
+                    <Text
+                      style={[styles.footerCtaArrow, { color: ctaLabelColor }]}
+                      accessibilityElementsHidden
+                      importantForAccessibility="no"
+                    >
+                      →
+                    </Text>
+                  </View>
+                </Pressable>
+              )}
             </View>
-            <Pressable
-              onPress={skip}
-              disabled={isPending}
-              accessibilityRole="button"
-              accessibilityLabel={t('auth.avatar.skip', { defaultValue: AUTH_AVATAR.skip })}
-              accessibilityHint={t('auth.avatar.a11y.skipHint', {
-                defaultValue: AUTH_AVATAR.a11y.skipHint,
-              })}
-              style={({ pressed }) => [
-                styles.dangerSkipAction,
-                pressed && !isPending ? styles.dangerSkipActionPressed : null,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.dangerSkipText,
-                  { color: isPending ? palette.textDisabled : palette.errorText },
-                ]}
-              >
-                {t('auth.avatar.skip', { defaultValue: AUTH_AVATAR.skip })}
-              </Text>
-            </Pressable>
           </View>
         </View>
       </KeyboardAvoidingView>

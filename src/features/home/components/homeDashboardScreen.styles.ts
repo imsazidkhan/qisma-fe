@@ -4,50 +4,9 @@ import { radius, space, textStyles, typography } from '@/theme';
 
 export const homeDashboardScreenStyles = StyleSheet.create({
   scrollContent: {
-    paddingTop: space.gapMd,
+    paddingTop: space.paddingMd,
     paddingBottom: space.sectionGapLg,
     gap: space.sectionGap,
-  },
-  topBarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'stretch',
-    marginBottom: space.gapSm,
-    minHeight: 44,
-    justifyContent: 'space-between',
-    gap: space.gapMd,
-  },
-  topBarMeta: {
-    flex: 1,
-    minWidth: 0,
-    justifyContent: 'center',
-    paddingRight: space.gapSm,
-  },
-  topBarMetaText: {
-    ...textStyles.caption,
-    fontFamily: typography.fontFamily.mono.regular,
-    letterSpacing: typography.letterSpacing.widest,
-    fontVariant: ['tabular-nums'],
-  },
-  inboxHit: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 44,
-    minHeight: 44,
-  },
-  inboxIconWrap: {
-    position: 'relative',
-  },
-  inboxBadge: {
-    position: 'absolute',
-    top: -4,
-    right: -10,
-    minWidth: 18,
-    height: 18,
-    paddingHorizontal: 4,
-    borderRadius: radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   greeting: {
     ...textStyles.h3,

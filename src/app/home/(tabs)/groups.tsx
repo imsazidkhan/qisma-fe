@@ -1,16 +1,16 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { hrefGroupDetail, ROUTES } from '@/constants/routes';
+import { hrefGroupDetail } from '@/constants/routes';
 
 import { useAuthSession } from '@/features/auth/hooks';
 import {
+  type GroupsHomeTabQuery,
   GroupsHomeInitialLoading,
   GroupsListHome,
-  groupsQueryKeys,
-  useGroupsList,
+  useGroupsHome,
 } from '@/features/groups';
 import { getQismaTabBarContentInset } from '@/features/qisma/constants/tabBarLayout';
 import { SIGNED_IN_PATHS } from '@/features/onboarding/constants/signedInPaths';
@@ -21,13 +21,14 @@ export default function HomeGroupsTabScreen() {
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const { accessToken } = useAuthSession();
+  const [homeTab, setHomeTab] = useState<GroupsHomeTabQuery>('all');
   const {
-    data: groupsData,
-    isPending: groupsPending,
-    isError: groupsError,
-    isFetching: groupsFetching,
-    refetch: refetchGroups,
-  } = useGroupsList();
+    data: homeData,
+    isPending: homePending,
+    isError: homeError,
+    isFetching: homeFetching,
+    refetch: refetchHome,
+  } = useGroupsHome(homeTab);
 
   useEnsureSignedInPath(SIGNED_IN_PATHS.HOME);
 
@@ -40,15 +41,16 @@ export default function HomeGroupsTabScreen() {
   const scrollBottomPadding = getQismaTabBarContentInset(insets.bottom);
 
   const onRefreshGroups = useCallback(() => {
-    void queryClient.invalidateQueries({ queryKey: groupsQueryKeys.myGroups });
+    void queryClient.invalidateQueries({
+      predicate: (q) => {
+        const k = q.queryKey;
+        return Array.isArray(k) && k[0] === 'groups' && k[1] === 'my';
+      },
+    });
   }, [queryClient]);
 
-  const groups = groupsData ?? [];
-  const showLoader = groupsPending && accessToken;
-
-  const onHomeBack = useCallback(() => {
-    router.navigate(ROUTES.HOME);
-  }, []);
+  const groups = homeData?.items ?? [];
+  const showLoader = homePending && !homeData && accessToken;
 
   const onGroupPress = useCallback((groupId: string) => {
     router.push(hrefGroupDetail(groupId));
@@ -61,13 +63,14 @@ export default function HomeGroupsTabScreen() {
   return (
     <GroupsListHome
       groups={groups}
-      isFetching={groupsFetching}
-      isError={groupsError}
-      onRetry={() => void refetchGroups()}
+      homeTab={homeTab}
+      onHomeTabChange={setHomeTab}
+      isFetching={homeFetching}
+      isError={homeError}
+      onRetry={() => void refetchHome()}
       onRefresh={onRefreshGroups}
       scrollBottomPadding={scrollBottomPadding}
       onGroupPress={onGroupPress}
-      onHomeBackPress={onHomeBack}
     />
   );
 }
