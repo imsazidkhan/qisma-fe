@@ -65,11 +65,13 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     jsEngine: 'hermes',
     ios: {
       ...config.ios,
+      bundleIdentifier: 'com.imsazid.qisma',
       supportsTablet: true,
       ...(fs.existsSync(googlePlist) ? { googleServicesFile: googlePlist } : {}),
     },
     android: {
       ...config.android,
+      package: 'com.imsazid.qisma',
       adaptiveIcon: {
         backgroundColor: '#E6F4FE',
         foregroundImage: './assets/images/android-icon-foreground.png',
@@ -94,6 +96,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     extra: {
       ...config.extra,
+      eas: {
+        projectId: 'd226393c-cd8f-4596-866d-e86690632b6d',
+      },
       router: {
         root: 'src/app',
       },
