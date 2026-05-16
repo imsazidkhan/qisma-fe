@@ -10,21 +10,30 @@
 import i18next from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
+import { ar } from './locales/ar';
 import { en } from './locales/en';
 
 function bundleEnglish(): (typeof en)['translation'] {
   return JSON.parse(JSON.stringify(en)).translation as (typeof en)['translation'];
 }
 
+function bundleArabic(): (typeof ar)['translation'] {
+  return JSON.parse(JSON.stringify(ar)).translation as (typeof ar)['translation'];
+}
+
 const bundledEn = bundleEnglish();
+const bundledAr = bundleArabic();
 
 if (!i18next.isInitialized) {
   // eslint-disable-next-line import/no-named-as-default-member
   i18next.use(initReactI18next).init({
-    resources: { en: { translation: bundledEn } },
+    resources: {
+      en: { translation: bundledEn },
+      ar: { translation: bundledAr },
+    },
     lng: 'en',
     fallbackLng: ['en'],
-    supportedLngs: ['en'],
+    supportedLngs: ['en', 'ar'],
     defaultNS: 'translation',
     ns: ['translation'],
     /** Nested resources (`home.headline`, `auth.phone.title`, …). */

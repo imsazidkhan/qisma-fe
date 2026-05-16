@@ -12,7 +12,8 @@ export function minorToMajorString(minor: number): string {
 }
 
 export function sanitizeAmountTyping(text: string): string {
-  const cut = text.replace(/[^\d.]/g, '');
+  const normalized = text.normalize('NFKC').replace(/\s+/g, '');
+  const cut = normalized.replace(/[^\d.]/g, '');
   const firstDot = cut.indexOf('.');
   if (firstDot === -1) return cut.slice(0, 12);
   const intPart = cut.slice(0, firstDot).replace(/^0+(\d)/, '$1');

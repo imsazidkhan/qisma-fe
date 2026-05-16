@@ -5,6 +5,7 @@ import { useCallback, useRef } from 'react';
 import { ApiError, CLIENT_ERROR_CODES } from '@/api';
 import { ANALYTICS_EVENTS } from '@/constants';
 import { logger, track } from '@/services';
+import { callingCodeBucketForAnalytics } from '@/utils/e164Analytics';
 
 import { sendOtp } from '../api/otpApi';
 import { parseAuthServiceError } from '../api/parseAuthServiceError';
@@ -57,8 +58,8 @@ export function useSendOtp() {
       }
       startSending(phoneE164);
       track(ANALYTICS_EVENTS.OTP_SEND_INITIATED, {
-        // PII-safe: country code + length, NOT the phone itself.
-        countryCode: phoneE164.match(/^\+\d{1,3}/)?.[0] ?? 'unknown',
+        // PII-safe: coarse calling-code bucket + length, NOT the phone itself.
+        countryCode: callingCodeBucketForAnalytics(phoneE164),
         phoneLengthDigits: phoneE164.replace(/\D/g, '').length,
         source: 'auth-screen',
       });

@@ -82,19 +82,32 @@ export function FloatingCTA({
     </View>
   );
 
-  const plainLabel = (
-    <Text
+  const plainLabelStyle = {
+    fontFamily: typography.fontFamily.mono.medium,
+    fontSize: typography.fontSize.sm,
+    letterSpacing: typography.letterSpacing.widest,
+    textTransform: 'uppercase' as const,
+    color: labelColor,
+    opacity: labelOpacity,
+  };
+
+  const plainLabel = <Text style={plainLabelStyle}>{label}</Text>;
+
+  const loadingRow = (
+    <View
       style={{
-        fontFamily: typography.fontFamily.mono.medium,
-        fontSize: typography.fontSize.sm,
-        letterSpacing: typography.letterSpacing.widest,
-        textTransform: 'uppercase',
-        color: labelColor,
-        opacity: labelOpacity,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: space.gapSm,
       }}
+      accessibilityLiveRegion="polite"
     >
-      {label}
-    </Text>
+      <ActivityIndicator
+        color={outline ? palette.accent : fill === 'ink' ? palette.white : palette.textOnAccent}
+      />
+      <Text style={plainLabelStyle}>{label}</Text>
+    </View>
   );
 
   const subtitleBaseColor = inactiveInk
@@ -127,6 +140,28 @@ export function FloatingCTA({
           lineHeight: typography.fontSize.xs * 1.35,
           color: subtitleBaseColor,
           opacity: subtitleOpacity,
+          textAlign: 'center',
+        }}
+      >
+        {subtitle}
+      </Text>
+    ) : null;
+
+  const loadingSubtitleNode =
+    subtitle && loading ? (
+      <Text
+        style={{
+          marginTop: space.gapXs,
+          fontFamily: typography.fontFamily.sans.regular,
+          fontSize: typography.fontSize.xs,
+          lineHeight: typography.fontSize.xs * 1.35,
+          color: subtitleBaseColor,
+          opacity:
+            fill === 'ink' && !outline
+              ? opacityTokens.high
+              : outline
+                ? subtitleOpacity
+                : opacityTokens.high,
           textAlign: 'center',
         }}
       >
@@ -180,7 +215,10 @@ export function FloatingCTA({
             collapsable={false}
           >
             {loading ? (
-              <ActivityIndicator color={palette.white} />
+              <View style={{ alignItems: 'center', alignSelf: 'stretch' }}>
+                {loadingRow}
+                {loadingSubtitleNode}
+              </View>
             ) : (
               <View style={{ alignItems: 'center', alignSelf: 'stretch' }}>
                 {leading != null || trailing != null ? labelRow : plainLabel}
@@ -232,9 +270,10 @@ export function FloatingCTA({
         })}
       >
         {loading ? (
-          <ActivityIndicator
-            color={outline ? palette.accent : fill === 'ink' ? palette.white : palette.textOnAccent}
-          />
+          <View style={{ alignItems: 'center', alignSelf: 'stretch' }}>
+            {loadingRow}
+            {loadingSubtitleNode}
+          </View>
         ) : (
           <View style={{ alignItems: 'center', alignSelf: 'stretch' }}>
             {leading != null || trailing != null ? labelRow : plainLabel}

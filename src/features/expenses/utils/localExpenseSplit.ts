@@ -19,6 +19,11 @@ export type LocalSplitFormState = {
   adjustRemainderUserId: string | null | undefined;
 };
 
+function roundPercentUi(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  return Math.round(n * 100) / 100;
+}
+
 export function computeLocalSplitValidation(input: LocalSplitFormState): SplitValidationState {
   const totalMinor = parseAmountToMinor(input.totalAmountMajor);
   if (totalMinor === null) {
@@ -48,33 +53,47 @@ export function computeLocalSplitValidation(input: LocalSplitFormState): SplitVa
       return { kind: 'remaining', amountMinor: totalMinor - sum, currency: input.currency };
     }
     case 'percentage': {
+      const eps = 1e-6;
       let sum = 0;
+      let hasEmpty = false;
       for (const id of ids) {
         const raw = (input.percentByUserId[id] ?? '').replace(/,/g, '').trim();
         if (!raw) {
-          return { kind: 'percent_gap', gapPercent: Math.max(0, 100 - sum) };
+          hasEmpty = true;
+          continue;
         }
         const p = Number(raw);
-        if (!Number.isFinite(p) || p < 0) {
+        if (!Number.isFinite(p)) {
           return { kind: 'incomplete', labelKey: 'expenses.add.validation.percentInvalid' };
+        }
+        if (p < -eps) {
+          return { kind: 'incomplete', labelKey: 'expenses.add.validation.percentInvalid' };
+        }
+        if (p > 100 + eps) {
+          return { kind: 'incomplete', labelKey: 'expenses.add.validation.percentRowExceeds100' };
         }
         sum += p;
       }
-      if (Math.abs(sum - 100) < 0.0001) return { kind: 'perfect' };
-      if (sum > 100 + 1e-6) return { kind: 'percent_over', overBy: sum - 100 };
-      return { kind: 'percent_gap', gapPercent: 100 - sum };
+      sum = roundPercentUi(sum);
+      if (sum > 100 + eps) {
+        return { kind: 'percent_over', overBy: roundPercentUi(sum - 100) };
+      }
+      if (hasEmpty) {
+        const remaining = roundPercentUi(Math.max(0, 100 - sum));
+        return { kind: 'percent_partial', sumAssigned: sum, remainingToHundred: remaining };
+      }
+      if (Math.abs(sum - 100) < eps) {
+        return { kind: 'perfect' };
+      }
+      return { kind: 'percent_gap', gapPercent: roundPercentUi(100 - sum) };
     }
     case 'shares': {
-      let sumShares = 0;
       for (const id of ids) {
-        const s = input.sharesByUserId[id] ?? 0;
-        if (s < 1) {
+        const raw = input.sharesByUserId[id];
+        if (typeof raw !== 'number' || !Number.isFinite(raw) || raw < 1) {
           return { kind: 'incomplete', labelKey: 'expenses.add.validation.sharesInvalid' };
         }
-        sumShares += s;
       }
-      if (sumShares < 1)
-        return { kind: 'incomplete', labelKey: 'expenses.add.validation.sharesInvalid' };
       return { kind: 'perfect' };
     }
     case 'adjust': {
@@ -111,9 +130,10 @@ export function getSplitValidationMessageKey(v: SplitValidationState): string {
   if (v.kind === 'perfect') return '';
   if (v.kind === 'idle') return 'expenses.add.validation.splitMismatch';
   if (v.kind === 'incomplete') return v.labelKey;
-  if (v.kind === 'remaining') return 'expenses.add.validation.remainingNotZero';
+  if (v.kind === 'remaining') return '';
   if (v.kind === 'over') return 'expenses.add.validation.exceededTotal';
-  if (v.kind === 'percent_gap') return 'expenses.add.validation.percentTotal';
+  if (v.kind === 'percent_gap') return 'expenses.add.validation.percentBelow100Total';
+  if (v.kind === 'percent_partial') return 'expenses.add.validation.percentFillAllRowsBalance';
   if (v.kind === 'percent_over') return 'expenses.add.validation.percentOver';
   return 'expenses.add.validation.splitMismatch';
 }
@@ -123,7 +143,13 @@ export function validateLocalSplitForm(
 ): { ok: true; split: ExpenseSplitPayload } | { ok: false; messageKey: string } {
   const v = computeLocalSplitValidation(state);
   if (v.kind !== 'perfect') {
-    return { ok: false, messageKey: getSplitValidationMessageKey(v) };
+    return {
+      ok: false,
+      messageKey:
+        v.kind === 'remaining'
+          ? 'expenses.add.modern.submitHintMissingSplit'
+          : getSplitValidationMessageKey(v),
+    };
   }
   const ids = [...state.participantUserIds];
   const lineIds = (userId: string): string[] => [userId];
@@ -150,7 +176,7 @@ export function validateLocalSplitForm(
     case 'shares': {
       const lines = ids.map((userId) => ({
         participantUserIds: lineIds(userId),
-        shares: state.sharesByUserId[userId] ?? 1,
+        shares: Math.floor(state.sharesByUserId[userId]!),
       }));
       return { ok: true, split: { type: 'shares', lines } };
     }

@@ -1,5 +1,5 @@
 export { ANALYTICS_EVENTS, type AnalyticsEvent } from './analyticsEvents';
-export { LEGAL_PRIVACY_URL, LEGAL_TERMS_URL } from './legalUrls';
+export { LEGAL_PRIVACY_URL, LEGAL_TERMS_URL, SUPPORT_HELP_CENTER_URL } from './legalUrls';
 export { DEFAULT_PHONE_REGION, OTP } from './otp';
 export {
   ROUTES,

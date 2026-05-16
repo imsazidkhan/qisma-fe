@@ -31,7 +31,9 @@ export function buildExpensePatchFromForm(params: {
   structuredDraft?: ExpenseStructuredPatchSnapshot;
 }): PatchExpenseBody {
   const { detail, title, amountMajor, paidByUserId, date, currency, notes, split } = params;
-  const patch: PatchExpenseBody = { split: toVeloraqExpenseSplitWire(split) };
+  const patch: PatchExpenseBody = {
+    split: toVeloraqExpenseSplitWire(split),
+  };
   const trimmedTitle = title.trim();
   if (trimmedTitle !== detail.title) {
     patch.title = trimmedTitle;

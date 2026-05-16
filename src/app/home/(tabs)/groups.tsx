@@ -41,13 +41,9 @@ export default function HomeGroupsTabScreen() {
   const scrollBottomPadding = getQismaTabBarContentInset(insets.bottom);
 
   const onRefreshGroups = useCallback(() => {
-    void queryClient.invalidateQueries({
-      predicate: (q) => {
-        const k = q.queryKey;
-        return Array.isArray(k) && k[0] === 'groups' && k[1] === 'my';
-      },
-    });
-  }, [queryClient]);
+    void queryClient.invalidateQueries({ queryKey: ['groups', 'my'] });
+    void refetchHome();
+  }, [queryClient, refetchHome]);
 
   const groups = homeData?.items ?? [];
   const showLoader = homePending && !homeData && accessToken;

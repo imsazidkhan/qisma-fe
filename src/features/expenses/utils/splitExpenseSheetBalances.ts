@@ -36,12 +36,13 @@ export function computeCurrentUserShareMinor(
   }
   let sum = 0;
   for (const id of includedMemberIds) {
-    const s = sharesByUserId[id] ?? 1;
-    if (Number.isFinite(s) && s > 0) sum += s;
+    const s = sharesByUserId[id];
+    if (typeof s === 'number' && Number.isFinite(s) && s >= 1) sum += Math.floor(s);
   }
   if (sum <= 0) return null;
-  const share = sharesByUserId[currentUserId] ?? 1;
-  return Math.round((totalMinor * share) / sum);
+  const share = sharesByUserId[currentUserId];
+  if (typeof share !== 'number' || !Number.isFinite(share) || share < 1) return null;
+  return Math.round((totalMinor * Math.floor(share)) / sum);
 }
 
 export type AfterSplitResult =
@@ -109,12 +110,13 @@ export function computeMemberAmountMinorForPreview(
   }
   let sum = 0;
   for (const id of includedMemberIds) {
-    const s = sharesByUserId[id] ?? 1;
-    if (Number.isFinite(s) && s > 0) sum += s;
+    const s = sharesByUserId[id];
+    if (typeof s === 'number' && Number.isFinite(s) && s >= 1) sum += Math.floor(s);
   }
   if (sum <= 0) return null;
-  const share = sharesByUserId[memberId] ?? 1;
-  return Math.round((totalMinor * share) / sum);
+  const share = sharesByUserId[memberId];
+  if (typeof share !== 'number' || !Number.isFinite(share) || share < 1) return null;
+  return Math.round((totalMinor * Math.floor(share)) / sum);
 }
 
 export function formatPctOfTotal(amountMinor: number | null, totalMinor: number | null): string {

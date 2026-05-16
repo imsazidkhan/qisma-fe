@@ -17,7 +17,7 @@ export function payerIsOnSplit(paidByUserId: string, includedIds: readonly strin
   return Boolean(paidByUserId.trim()) && includedIds.includes(paidByUserId);
 }
 
-/** First failing rule for confirming the split sheet (same as sticky CTA in {@link SplitExpenseSheet}). */
+/** First failing split validation for the add-expense submit path (split sheet is auto-saved; this gates posting). */
 export function firstSplitSheetDismissBlocker(
   splitForm: LocalSplitFormState,
   paidByUserId: string,
@@ -25,6 +25,9 @@ export function firstSplitSheetDismissBlocker(
 ): string | null {
   const v = computeLocalSplitValidation(splitForm);
   if (v.kind !== 'perfect') {
+    if (v.kind === 'remaining') {
+      return 'expenses.add.modern.submitHintMissingSplit';
+    }
     return getSplitValidationMessageKey(v);
   }
   if (!payerIsOnSplit(paidByUserId, includedIds)) {

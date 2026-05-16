@@ -9,6 +9,8 @@ export const ROUTES = {
   HOME_ACTIVITY: '/home/activity',
   HOME_CREATE_GROUP: '/home/create-group',
   HOME_PROFILE: '/home/profile',
+  /** Stack screen — edit display name / avatar (`PATCH /v1/auth/me`). */
+  HOME_EDIT_PROFILE: '/home/edit-profile',
   LOGIN: '/login',
 } as const;
 

@@ -145,6 +145,12 @@ export function deleteExpense(
 
 export function mapExpensePatchError(err: unknown): { titleKey: string; messageKey: string } {
   if (err instanceof ApiError) {
+    if (err.status >= 500) {
+      return {
+        titleKey: 'expenses.edit.errorTitle',
+        messageKey: 'expenses.edit.errorServerAmbiguous',
+      };
+    }
     let messageKey: string = 'expenses.edit.errorGeneric';
     if (err.code === 'SPLIT_VALIDATION_ERROR') {
       messageKey = 'expenses.edit.errorSplitFinancial';
@@ -180,6 +186,12 @@ export function mapExpenseCreateError(err: unknown): MappedExpenseCreateError {
   ]);
 
   if (err instanceof ApiError) {
+    if (err.status >= 500) {
+      return {
+        titleKey: 'expenses.add.errorTitle',
+        messageKey: 'expenses.add.errorServerAmbiguous',
+      };
+    }
     const messageKey =
       err.code === 'SPLIT_VALIDATION_ERROR'
         ? 'expenses.add.errorSplit'

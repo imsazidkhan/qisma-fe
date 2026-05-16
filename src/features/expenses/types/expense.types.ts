@@ -27,27 +27,32 @@ export type ExpenseSplitPayload =
       remainderUserId: string;
     };
 
+/** One line in `split.splitType === "itemized"` (server DTO). */
+export type VeloraqItemizedSplitLineWire = {
+  label: string;
+  amount: string;
+  participantUserIds?: string[];
+  splitAmongEveryone?: boolean;
+};
+
 /**
- * Veloraq `split` on create/patch — discriminator **`splitType`**, enum per server validation.
+ * Veloraq `split` on create/patch — discriminator **`splitType`**.
+ * Maps / adjustment fields match `POST /v1/groups/:groupId/expenses` examples.
  */
 export type VeloraqExpenseSplitWire =
   | { splitType: 'equal'; participantUserIds: string[] }
-  | {
-      splitType: 'exact';
-      lines: { participantUserIds: string[]; amount: string }[];
-    }
-  | {
-      splitType: 'percentage';
-      lines: { participantUserIds: string[]; percent: number }[];
-    }
-  | {
-      splitType: 'shares';
-      lines: { participantUserIds: string[]; shares: number }[];
-    }
+  | { splitType: 'exact'; amountsByUserId: Record<string, string> }
+  | { splitType: 'percentage'; percentageByUserId: Record<string, string> }
+  | { splitType: 'shares'; sharesByUserId: Record<string, string> }
   | {
       splitType: 'adjustment';
-      lines: { participantUserIds: string[]; amount: string }[];
-      remainderUserId: string;
+      fixedAmountsByUserId: Record<string, string>;
+      remainderUserIds: string[];
+    }
+  | {
+      splitType: 'itemized';
+      allParticipantUserIds: string[];
+      lines: VeloraqItemizedSplitLineWire[];
     };
 
 /** Wire body for `POST /v1/groups/:groupId/expenses` (`CreateExpenseBodyDto` on the server). */
@@ -70,6 +75,7 @@ export type CreateGroupExpenseBody = {
   receiptUrl?: string;
   location?: string;
   isRecurring?: boolean;
+  tagSlugs?: string[];
 };
 
 export type GroupBalancesSnapshot = {
@@ -132,6 +138,7 @@ export type PatchExpenseBody = {
   receiptUrl?: string;
   location?: string;
   isRecurring?: boolean;
+  tagSlugs?: string[];
 };
 
 /** Same envelope as create. */
@@ -144,6 +151,7 @@ export type SplitValidationState =
   | { kind: 'idle' }
   | { kind: 'incomplete'; labelKey: string }
   | { kind: 'remaining'; amountMinor: number; currency: string }
+  | { kind: 'percent_partial'; sumAssigned: number; remainingToHundred: number }
   | { kind: 'percent_gap'; gapPercent: number }
   | { kind: 'percent_over'; overBy: number }
   | { kind: 'perfect' }

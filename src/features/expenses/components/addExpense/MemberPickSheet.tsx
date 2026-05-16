@@ -132,7 +132,7 @@ export function MemberPickSheet({
 
   const renderBackdrop = useCallback((props: BottomSheetBackdropProps) => {
     return (
-      <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.38} />
+      <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.42} />
     );
   }, []);
 
@@ -259,8 +259,13 @@ export function MemberPickSheet({
   return (
     <BottomSheetModal
       ref={sheetRef}
+      stackBehavior="push"
       snapPoints={snapPoints}
+      enableDynamicSizing={false}
       enablePanDownToClose
+      enableBlurKeyboardOnGesture
+      topInset={insets.top}
+      bottomInset={insets.bottom}
       backdropComponent={renderBackdrop}
       handleIndicatorStyle={{
         backgroundColor: palette.borderSubtle,

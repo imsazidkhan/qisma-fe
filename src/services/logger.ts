@@ -15,6 +15,9 @@ export type LogContext = {
   tags?: Record<string, string | number | boolean | undefined>;
 };
 
+/** Metro → device WS on Android often drops long / multiline console lines; stay under this. */
+const DEV_HTTP_TRACE_CHUNK = 2800;
+
 export const logger = {
   /** Drop a non-error breadcrumb. Use for noteworthy state transitions. */
   breadcrumb(message: string, context?: LogContext): void {
@@ -36,6 +39,27 @@ export const logger = {
   debug(message: string, ...args: unknown[]): void {
     if (__DEV__) {
       console.log(`[debug] ${message}`, ...args);
+    }
+  },
+
+  /**
+   * High-salience dev-only log (`console.warn` — shows reliably in Metro / LogBox).
+   * Intended for `apiFetch` wire traces. Envelopes may contain sensitive fields; __DEV__ only.
+   * Long messages are split so Expo CLI on Android still forwards them over the dev socket.
+   */
+  devHttpTrace(message: string): void {
+    if (!__DEV__) return;
+    if (message.length <= DEV_HTTP_TRACE_CHUNK) {
+      console.warn(`[http] ${message}`);
+      return;
+    }
+    const total = Math.ceil(message.length / DEV_HTTP_TRACE_CHUNK);
+    for (let i = 0; i < total; i += 1) {
+      const slice = message.slice(
+        i * DEV_HTTP_TRACE_CHUNK,
+        (i + 1) * DEV_HTTP_TRACE_CHUNK,
+      );
+      console.warn(`[http ${i + 1}/${total}] ${slice}`);
     }
   },
 };

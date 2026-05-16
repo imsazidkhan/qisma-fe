@@ -243,10 +243,24 @@ const groupsHomeDataSchema = z.object({
   items: z.array(z.unknown()),
 });
 
+function filterGroupsHomeItemsByTab(items: GroupListItem[], tab: GroupsHomeTabQuery): GroupListItem[] {
+  if (tab === 'all') return items;
+  if (tab === 'owe') return items.filter((i) => i.balance.tone === 'you_owe');
+  if (tab === 'get_back') return items.filter((i) => i.balance.tone === 'owed_to_you');
+  return items.filter((i) => i.balance.tone === 'settled');
+}
+
+function shouldFallbackGroupsHomeToMembershipList(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 404;
+}
+
 /**
  * `GET /v1/users/me/groups/home` — tabbed dashboard (`tab` query: all | owe | get_back | settled).
+ *
+ * If that route is missing (**404**), falls back to **`GET /v1/users/me/groups`**
+ * and applies the same `tab` filter client-side (balance tones on membership rows).
  */
-export function getMyGroupsHome(
+export async function getMyGroupsHome(
   tab: GroupsHomeTabQuery = 'all',
   signal?: AbortSignal,
 ): Promise<GroupsHomeData> {
@@ -258,7 +272,8 @@ export function getMyGroupsHome(
   const path =
     qs.length > 0 ? `${ENDPOINTS.users.meGroupsHome}?${qs}` : ENDPOINTS.users.meGroupsHome;
 
-  return apiFetch<unknown>(path, { method: 'GET', signal }).then((raw) => {
+  try {
+    const raw = await apiFetch<unknown>(path, { method: 'GET', signal });
     const envelope = groupsHomeDataSchema.safeParse(raw);
     if (!envelope.success) {
       throw new ApiError({
@@ -268,7 +283,7 @@ export function getMyGroupsHome(
         details: envelope.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`),
       });
     }
-    const tab = envelope.data.tab;
+    const tabFromApi = envelope.data.tab;
     const itemsRaw = envelope.data.items;
     const out: GroupListItem[] = [];
     let skippedInvalidRows = 0;
@@ -286,8 +301,22 @@ export function getMyGroupsHome(
         tags: { skippedInvalidRows },
       });
     }
-    return { tab, items: out };
-  });
+    return { tab: tabFromApi, items: out };
+  } catch (err) {
+    if (!shouldFallbackGroupsHomeToMembershipList(err)) {
+      throw err;
+    }
+    logger.breadcrumb('my_groups_home_fallback_membership', {
+      endpoint: ENDPOINTS.users.meGroups,
+      tags: { requestedTab: tab },
+    });
+    try {
+      const items = await getMyGroupsList(signal);
+      return { tab, items: filterGroupsHomeItemsByTab(items, tab) };
+    } catch {
+      throw err;
+    }
+  }
 }
 
 /**

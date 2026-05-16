@@ -1,0 +1,89 @@
+---
+description: >-
+  Mobile form UX — drafts, keyboard/sheets, inputs, CTAs, flow, accessibility,
+  microcopy (React Native / Expo)
+globs:
+  - "**/*Form*.tsx"
+  - "**/forms/**/*.tsx"
+  - "**/*Sheet*.tsx"
+  - "**/features/**/screens/**/*.tsx"
+alwaysApply: false
+---
+
+# Mobile form UX
+
+Apply when building or editing screens with inputs, bottom sheets, or submit flows.
+Stack with `forms-and-navigation.mdc` (React Hook Form + Zod) and `rn-platform.mdc`
+(keyboard-safe layouts, NetInfo).
+
+## Inputs & state
+
+- **Preserve drafts:** Do not clear typed values on navigation back, sheet dismiss,
+  refresh, or validation failure. Prefer lifting state or persisted drafts for long
+  flows when reasonable.
+- **Autofocus sparingly:** Only when the user clearly expects immediate typing.
+  Avoid keyboard popping during route transitions or mid sheet animation.
+- **Paste-friendly:** Accept pasted amounts, UPI IDs, phones, OTPs, etc. Strip or
+  normalize formatting instead of rejecting on first invalid character.
+- **Smart defaults:** Pre-fill predictable values (today’s date, user currency,
+  last-used split type, recent category) when product rules allow.
+
+## Numeric / money fields
+
+- Use a decimal-capable keyboard for currency.
+- Show formatted display (e.g. grouping) without corrupting the editable model;
+  **do not fight caret position** while formatting — prefer stable raw value +
+  visual formatting patterns that preserve cursor behavior.
+
+## Async validation (availability checks)
+
+- Debounce remote checks (username, invite code, etc.).
+- Show a lightweight “checking…” state; avoid rapid flip-flop between error/success.
+
+## Accessibility
+
+- `accessibilityLabel` / hints where helpful; associate errors with fields for
+  screen readers (`AccessibilityInfo.announceForAccessibility` on submit failure
+  when appropriate).
+- Large enough tap targets; sufficient contrast via theme tokens (`useThemeColors`)
+ — never hardcoded colors.
+
+## Buttons & CTAs
+
+- **Prevent double submit:** Disable primary action (or ignore duplicate taps) while
+  mutation is pending; guard slow networks.
+- Prefer **label + loading** copy (“Adding expense…”, “Saving…”) over spinner-only
+  buttons when the action is user-visible.
+- **Stable placement:** Primary action stays in a predictable place across steps /
+  sheets (e.g. pinned footer).
+- **Immediate feedback:** Visible pressed/disabled state and restrained haptics
+  where the design system allows; then show loading if the request continues.
+- **Safe areas:** Footer CTAs respect home indicator, gesture nav, and keyboard
+  inset — primary action stays reachable (see `rn-platform.mdc`).
+- **On submit failure:** Keep field values; re-enable CTA; scroll/focus the first
+  fixable issue.
+
+## Form flow
+
+- **Enter / return:** Advance to next field where applicable; on last field, submit
+  when that matches the screen’s primary action.
+- **Scroll-to-error:** Smoothly bring the first invalid field into view and focus it.
+- **Long forms:** Group related fields into sections to reduce cognitive load and
+  endless single-scroll walls.
+- **Offline / slow network:** Surface pending or sync state after submit so users
+  know the tap registered (TanStack Query mutations, optimistic UI, or explicit
+  banners — pick what matches the feature).
+
+## Microcopy
+
+- Errors should say **what to do next**, not only that something failed  
+  (e.g. “Enter an amount greater than ₹0” vs “Invalid amount”).
+- Prefer neutral, non-blamey titles (“Couldn’t add expense”) over harsh system-speak
+  (“Submission failed”).
+
+## Bottom sheets & keyboard (especially iOS)
+
+- Keyboard should **track the sheet** smoothly; avoid layout jumps, flicker, and
+  avoid unnecessary full-screen takeover for simple inputs.
+- Coordinate sheet animation timing with focus — don’t focus until the sheet is
+  settled if that avoids keyboard + motion clashes.

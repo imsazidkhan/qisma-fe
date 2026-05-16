@@ -23,7 +23,7 @@ function mergeSharesMap(
 ): Record<string, number> {
   const next: Record<string, number> = { ...previous };
   for (const id of ids) {
-    if (next[id] === undefined) next[id] = 1;
+    if (next[id] === undefined) next[id] = 0;
   }
   for (const k of Object.keys(next)) {
     if (!ids.includes(k)) delete next[k];
@@ -31,8 +31,13 @@ function mergeSharesMap(
   return next;
 }
 
-export function useExpenseSplitState(participantIds: readonly string[]) {
-  const [splitType, setSplitType] = useState<ExpenseSplitType>('equal');
+export function useExpenseSplitState(
+  participantIds: readonly string[],
+  options?: { initialSplitType?: ExpenseSplitType },
+) {
+  const [splitType, setSplitType] = useState<ExpenseSplitType>(
+    () => options?.initialSplitType ?? 'equal',
+  );
   const [exactByUserId, setExactByUserId] = useState<Record<string, string>>({});
   const [percentByUserId, setPercentByUserId] = useState<Record<string, string>>({});
   const [sharesByUserId, setSharesByUserId] = useState<Record<string, number>>({});

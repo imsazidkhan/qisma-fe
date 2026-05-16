@@ -5,9 +5,12 @@ import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  AccessibilityInfo,
   ActivityIndicator,
   Alert,
+  InteractionManager,
   KeyboardAvoidingView,
+  type LayoutChangeEvent,
   Platform,
   Pressable,
   ScrollView,
@@ -19,6 +22,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ApiError } from '@/api';
+import { STORAGE_KEYS } from '@/constants/storageKeys';
 import { useAuthMe } from '@/features/auth/hooks/useAuthMe';
 import { mapExpenseCreateError, mapExpensePatchError } from '@/features/expenses/api/expensesApi';
 import { EXPENSE_DETAIL_ERROR_CODES } from '@/features/expenses/constants/errorCodes';
@@ -40,33 +44,37 @@ import { useExpenseDetail } from '@/features/expenses/hooks/useExpenseDetail';
 import { useExpenseSplitState } from '@/features/expenses/hooks/useExpenseSplitState';
 import { useExpenseTitleClassify } from '@/features/expenses/hooks/useExpenseTitleClassify';
 import { useExpenseWrite } from '@/features/expenses/hooks/useExpenseWrite';
-import type { ExpenseSplitType } from '@/features/expenses/types/expense.types';
+import {
+  EXPENSE_SPLIT_TYPES,
+  type ExpenseSplitType,
+} from '@/features/expenses/types/expense.types';
 import {
   expenseStructuredDraftFromClassify,
   type ExpenseStructuredDraft,
 } from '@/features/expenses/types/expenseTaxonomy.types';
-import {
-  firstAddExpenseSubmitBlocker,
-  firstSplitSheetDismissBlocker,
-} from '@/features/expenses/utils/addExpenseSubmitReadiness';
+import { firstAddExpenseSubmitBlocker } from '@/features/expenses/utils/addExpenseSubmitReadiness';
 import { parseAmountToMinor } from '@/features/expenses/utils/amountParsing';
 import { buildCreateExpenseBodyFromForm } from '@/features/expenses/utils/buildCreateExpenseBodyFromForm';
+import { computeEqualMajorPerPerson } from '@/features/expenses/utils/equalSplitPreview';
 import { buildExpensePatchFromForm } from '@/features/expenses/utils/buildExpensePatchFromForm';
 import { assertExpensePatchIncludesSplitWhenRequired } from '@/features/expenses/utils/expensePatchRules';
 import { expenseStructuredPatchSnapshotFromWire } from '@/features/expenses/utils/expenseStructuredPatch';
 import { buildHydratedSplitSeed } from '@/features/expenses/utils/hydrateSplitSeedFromExpenseDetail';
 import { participantIdsFromExpenseDetail } from '@/features/expenses/utils/participantIdsFromExpenseDetail';
 import { readExpenseStructuredWire } from '@/features/expenses/utils/readExpenseStructuredWire';
+import { seedSplitMapsForTabTransition } from '@/features/expenses/utils/splitTabTransitionSeed';
 import { computeParticipantPreview } from '@/features/expenses/utils/computeParticipantPreview';
 import {
   validateLocalSplitForm,
   type LocalSplitFormState,
 } from '@/features/expenses/utils/localExpenseSplit';
+import { useGroupBalancesSnapshot } from '@/features/groups/hooks/useGroupBalancesSnapshot';
 import { useGroupMemberProfile } from '@/features/groups/hooks/useGroupDetail';
 import { useGroupMembers } from '@/features/groups/hooks/useGroupMembers';
 import type { GroupMemberRosterEntry } from '@/features/groups/types/groupMember.types';
 import { isUuid } from '@/features/groups/utils/isUuid';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { storage } from '@/services/storage';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import {
   radius,
@@ -119,6 +127,35 @@ function memberInitial(name: string): string {
   return (trimmed[0] ?? '?').toUpperCase();
 }
 
+const INLINE_SUBMIT_HINTS: Record<string, string> = {
+  'expenses.add.validationTitle': 'expenses.add.modern.submitHintMissingTitle',
+  'expenses.add.validationAmount': 'expenses.add.modern.submitHintMissingAmount',
+  'expenses.add.validationDate': 'expenses.add.modern.submitHintMissingDate',
+  'expenses.add.validation.payerMustBeOnSplit': 'expenses.add.modern.submitHintMissingPayer',
+};
+
+type SubmitScrollAnchor = 'date' | 'amount' | 'paidBy' | 'title' | 'split';
+
+function parseStoredSplitType(raw: string | undefined): ExpenseSplitType | null {
+  if (!raw) return null;
+  return (EXPENSE_SPLIT_TYPES as readonly string[]).includes(raw) ? (raw as ExpenseSplitType) : null;
+}
+
+function submitBlockerScrollAnchor(blockerKey: string): SubmitScrollAnchor {
+  switch (blockerKey) {
+    case 'expenses.add.validationTitle':
+      return 'title';
+    case 'expenses.add.validationAmount':
+      return 'amount';
+    case 'expenses.add.validationDate':
+      return 'date';
+    case 'expenses.add.validation.payerMustBeOnSplit':
+      return 'paidBy';
+    default:
+      return 'split';
+  }
+}
+
 export function AddExpenseScreen({
   groupId,
   onClose,
@@ -135,6 +172,15 @@ export function AddExpenseScreen({
 
   const editId = editExpenseId?.trim() ?? '';
   const isEdit = editId.length > 0;
+
+  const balancesSnapshotQuery = useGroupBalancesSnapshot(isUuid(groupId) ? groupId : undefined, {
+    enabled: isUuid(groupId) && !isEdit,
+  });
+  const ledgerCurrency = useMemo(() => {
+    const c = balancesSnapshotQuery.data?.summary.currency?.trim().toUpperCase();
+    return c && c.length === 3 ? c : null;
+  }, [balancesSnapshotQuery.data?.summary.currency]);
+
   const detailQuery = useExpenseDetail(isEdit ? groupId : undefined, isEdit ? editId : undefined, {
     enabled: isEdit && isUuid(groupId) && isUuid(editId),
   });
@@ -153,7 +199,15 @@ export function AddExpenseScreen({
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [editHydrated, setEditHydrated] = useState(false);
 
-  const classifyQuery = useExpenseTitleClassify(title);
+  const currencyUserPickedRef = useRef(false);
+  const setCurrencyFromSheet = useCallback((code: string) => {
+    currencyUserPickedRef.current = true;
+    setCurrency(code);
+  }, []);
+
+  const classifyHook = useExpenseTitleClassify(title);
+  const classifyQuery = classifyHook.classifyQuery;
+  const showTitleClassifyChecking = classifyHook.showTitleClassifyChecking;
   const classifyData = classifyQuery.data;
   const classifyMeta = classifyData?.classification;
   const titleReadyForClassify = title.trim().length >= 3;
@@ -162,6 +216,11 @@ export function AddExpenseScreen({
     classifyMeta?.isFallback !== true &&
     classifyMeta?.shouldPromptCorrection === false &&
     Boolean(classifyData?.category);
+
+  const initialSplitFromPrefs = useMemo((): ExpenseSplitType | undefined => {
+    if (isEdit) return undefined;
+    return parseStoredSplitType(storage.getString(STORAGE_KEYS.expenseLastSplitType)) ?? undefined;
+  }, [isEdit]);
 
   const {
     splitType,
@@ -174,7 +233,7 @@ export function AddExpenseScreen({
     setSharesByUserId,
     adjustFixedByUserId,
     adjustRemainderUserId,
-  } = useExpenseSplitState(includedIds);
+  } = useExpenseSplitState(includedIds, { initialSplitType: initialSplitFromPrefs });
 
   const amountMajorNormalized = amount.trim().replace(/,/g, '');
   const debouncedAmountMajor = useDebouncedValue(amountMajorNormalized, 450);
@@ -219,6 +278,46 @@ export function AddExpenseScreen({
     lastExactSplitTotalBaselineRef.current = cur;
   }, [debouncedAmountMajor, includedIds, setExactByUserId, splitType]);
 
+  const onChangeSplitTypeWithSync = useCallback(
+    (next: ExpenseSplitType) => {
+      if (next === splitType) return;
+      const totalSanitized = amountMajorNormalized;
+      const equalParts = computeEqualMajorPerPerson(totalSanitized, includedIds.length);
+      const seed = seedSplitMapsForTabTransition(
+        splitType,
+        next,
+        includedIds,
+        totalSanitized,
+        equalParts,
+        exactByUserId,
+        percentByUserId,
+        sharesByUserId,
+      );
+      if (seed.exactByUserId) setExactByUserId(seed.exactByUserId);
+      if (seed.percentByUserId) setPercentByUserId(seed.percentByUserId);
+      if (seed.sharesByUserId) setSharesByUserId(seed.sharesByUserId);
+      setSplitType(next);
+    },
+    [
+      amountMajorNormalized,
+      exactByUserId,
+      includedIds,
+      percentByUserId,
+      sharesByUserId,
+      setExactByUserId,
+      setPercentByUserId,
+      setSharesByUserId,
+      setSplitType,
+      splitType,
+    ],
+  );
+
+  useEffect(() => {
+    if (isEdit || currencyUserPickedRef.current) return;
+    if (!ledgerCurrency) return;
+    setCurrency(ledgerCurrency);
+  }, [isEdit, ledgerCurrency]);
+
   const writeTarget = useMemo(
     () =>
       isEdit
@@ -235,6 +334,9 @@ export function AddExpenseScreen({
   const metaSheetRef = useRef<BottomSheetModal | null>(null);
   const titleInputRef = useRef<TextInput | null>(null);
   const noteInputRef = useRef<TextInput | null>(null);
+  const amountInputRef = useRef<TextInput | null>(null);
+  const scrollRef = useRef<ScrollView | null>(null);
+  const scrollAnchorYRef = useRef<Partial<Record<SubmitScrollAnchor, number>>>({});
 
   const activeRoster = useMemo(() => roster.filter((r) => r.status === 'active'), [roster]);
   const activeRosterIds = useMemo(() => activeRoster.map((r) => r.id), [activeRoster]);
@@ -263,6 +365,11 @@ export function AddExpenseScreen({
     }
     setDidSeed(true);
   }, [activeRosterIds, didSeed, isEdit, me?.id, rosterQuery.isPending]);
+
+  useEffect(() => {
+    if (isEdit) return;
+    storage.set(STORAGE_KEYS.expenseLastSplitType, splitType);
+  }, [isEdit, splitType]);
 
   useEffect(() => {
     if (!isEdit) {
@@ -313,8 +420,16 @@ export function AddExpenseScreen({
   useEffect(() => {
     if (!shouldAutofillCategory || !classifyData?.category || userCategoryOverride) return;
     if (isEdit && !editHydrated) return;
+    if (classifyQuery.isFetching) return;
     setStructuredDraft(expenseStructuredDraftFromClassify(classifyData));
-  }, [classifyData, editHydrated, isEdit, shouldAutofillCategory, userCategoryOverride]);
+  }, [
+    classifyData,
+    classifyQuery.isFetching,
+    editHydrated,
+    isEdit,
+    shouldAutofillCategory,
+    userCategoryOverride,
+  ]);
 
   const includedMembers = useMemo((): GroupMemberRosterEntry[] => {
     const set = new Set(includedIds);
@@ -365,6 +480,11 @@ export function AddExpenseScreen({
     [submitSnapshot],
   );
 
+  const activeSubmitHintKey = useMemo(() => {
+    if (!submitBlockerKey) return null;
+    return INLINE_SUBMIT_HINTS[submitBlockerKey] ?? submitBlockerKey;
+  }, [submitBlockerKey]);
+
   const splitPayloadResult = useMemo(
     () => validateLocalSplitForm(splitFormState),
     [splitFormState],
@@ -372,6 +492,7 @@ export function AddExpenseScreen({
 
   const amountCardBlocked = submitAttempted && submitBlockerKey === 'expenses.add.validationAmount';
   const titleCardBlocked = submitAttempted && submitBlockerKey === 'expenses.add.validationTitle';
+  const dateCardBlocked = submitAttempted && submitBlockerKey === 'expenses.add.validationDate';
   const peopleCardBlocked =
     submitAttempted && submitBlockerKey === 'expenses.add.validation.payerMustBeOnSplit';
   const splitCardBlocked =
@@ -380,6 +501,40 @@ export function AddExpenseScreen({
     !amountCardBlocked &&
     !titleCardBlocked &&
     !peopleCardBlocked;
+
+  const amountFieldA11yHint = useMemo(() => {
+    if (amountCardBlocked && activeSubmitHintKey) return t(activeSubmitHintKey);
+    return t('expenses.add.modern.amountFieldHint');
+  }, [activeSubmitHintKey, amountCardBlocked, t]);
+
+  const titleFieldA11yHint = useMemo(() => {
+    if (titleCardBlocked && activeSubmitHintKey) return t(activeSubmitHintKey);
+    return t('expenses.add.modern.titleFieldHintNext');
+  }, [activeSubmitHintKey, titleCardBlocked, t]);
+
+  const paidByFieldA11yHint = useMemo(() => {
+    if (peopleCardBlocked && activeSubmitHintKey) return t(activeSubmitHintKey);
+    return t('expenses.add.premium.membersRowHint');
+  }, [activeSubmitHintKey, peopleCardBlocked, t]);
+
+  const dateCurrencyFieldA11yHint = useMemo(() => {
+    if (dateCardBlocked && activeSubmitHintKey) return t(activeSubmitHintKey);
+    return t('expenses.add.modern.dateCurrencyFieldHint');
+  }, [activeSubmitHintKey, dateCardBlocked, t]);
+
+  const splitSectionA11yHint = useMemo(() => {
+    if (splitCardBlocked && activeSubmitHintKey) return t(activeSubmitHintKey);
+    return t('expenses.add.modern.splitFieldHint');
+  }, [activeSubmitHintKey, splitCardBlocked, t]);
+
+  const submitCtaAccessibilityLabel = useMemo(() => {
+    if (saveMutation.isPending) {
+      return isEdit
+        ? `${t('expenses.edit.submitting')}. ${t('expenses.edit.submittingSubtitle')}`
+        : `${t('expenses.add.submitting')}. ${t('expenses.add.submittingSubtitle')}`;
+    }
+    return isEdit ? t('expenses.edit.ctaA11y') : t('expenses.add.submitA11y');
+  }, [isEdit, saveMutation.isPending, t]);
 
   const payerName = useMemo(() => {
     const m = activeRoster.find((r) => r.id === paidByUserId);
@@ -478,6 +633,37 @@ export function AddExpenseScreen({
     });
   }, [activeRoster, me?.id, paidByUserId, payerName, preview.rows, t]);
 
+  const captureScrollAnchor = useCallback((anchor: SubmitScrollAnchor) => {
+    return (e: LayoutChangeEvent) => {
+      scrollAnchorYRef.current[anchor] = e.nativeEvent.layout.y;
+    };
+  }, []);
+
+  const revealSubmitBlocker = useCallback((blockerKey: string) => {
+    const anchor = submitBlockerScrollAnchor(blockerKey);
+    const y = scrollAnchorYRef.current[anchor];
+    void InteractionManager.runAfterInteractions(() => {
+      requestAnimationFrame(() => {
+        if (y != null && scrollRef.current) {
+          scrollRef.current.scrollTo({ y: Math.max(0, y - space.gapMd), animated: true });
+        }
+        setTimeout(() => {
+          if (blockerKey === 'expenses.add.validationTitle') {
+            titleInputRef.current?.focus();
+          } else if (blockerKey === 'expenses.add.validationAmount') {
+            amountInputRef.current?.focus();
+          } else if (blockerKey === 'expenses.add.validationDate') {
+            metaSheetRef.current?.present();
+          } else if (blockerKey === 'expenses.add.validation.payerMustBeOnSplit') {
+            memberSheetRef.current?.present();
+          } else {
+            splitSheetRef.current?.present();
+          }
+        }, 360);
+      });
+    });
+  }, []);
+
   const openSplit = useCallback(() => {
     void Haptics.selectionAsync().catch(() => {});
     splitSheetRef.current?.present();
@@ -488,24 +674,18 @@ export function AddExpenseScreen({
     memberSheetRef.current?.present();
   }, []);
 
-  const onSplitSheetSave = useCallback(() => {
-    const key = firstSplitSheetDismissBlocker(splitFormState, paidByUserId, includedIds);
-    if (key) {
-      Alert.alert(t('expenses.add.errorTitle'), t(key));
-      return;
-    }
-    splitSheetRef.current?.dismiss();
-  }, [includedIds, paidByUserId, splitFormState, t]);
-
   const onSubmit = useCallback(() => {
     if (offline || saveMutation.isPending || !isUuid(groupId)) return;
     setSubmitAttempted(true);
     if (submitBlockerKey) {
-      Alert.alert(t('expenses.add.errorTitle'), t(submitBlockerKey));
+      const hintKey = activeSubmitHintKey ?? submitBlockerKey;
+      void AccessibilityInfo.announceForAccessibility(t(hintKey));
+      revealSubmitBlocker(submitBlockerKey);
       return;
     }
     if (!splitPayloadResult.ok) {
-      Alert.alert(t('expenses.add.errorTitle'), t(splitPayloadResult.messageKey));
+      void AccessibilityInfo.announceForAccessibility(t(splitPayloadResult.messageKey));
+      revealSubmitBlocker(splitPayloadResult.messageKey);
       return;
     }
     const d = dateYmd.trim();
@@ -513,7 +693,10 @@ export function AddExpenseScreen({
     if (isEdit) {
       if (!detail) return;
       if (!includedIds.includes(paidByUserId)) {
-        Alert.alert(t('expenses.edit.errorTitle'), t('expenses.add.validation.pickParticipants'));
+        void AccessibilityInfo.announceForAccessibility(
+          `${t('expenses.edit.errorTitle')}. ${t('expenses.add.validation.pickParticipants')}`,
+        );
+        revealSubmitBlocker('expenses.add.validation.payerMustBeOnSplit');
         return;
       }
       const wireSnap = readExpenseStructuredWire(detail);
@@ -534,6 +717,8 @@ export function AddExpenseScreen({
       try {
         assertExpensePatchIncludesSplitWhenRequired(patch, editPatchBaseline);
       } catch {
+        void AccessibilityInfo.announceForAccessibility(t('expenses.edit.errorSplitFinancial'));
+        revealSubmitBlocker('expenses.add.validation.splitMismatch');
         Alert.alert(t('expenses.edit.errorTitle'), t('expenses.edit.errorSplitFinancial'));
         return;
       }
@@ -544,6 +729,9 @@ export function AddExpenseScreen({
         },
         onError: (err) => {
           const mapped = mapExpensePatchError(err);
+          void AccessibilityInfo.announceForAccessibility(
+            `${t(mapped.titleKey)}. ${t(mapped.messageKey)}`,
+          );
           Alert.alert(t(mapped.titleKey), t(mapped.messageKey));
         },
       });
@@ -567,10 +755,13 @@ export function AddExpenseScreen({
       },
       onError: (err) => {
         const mapped = mapExpenseCreateError(err);
-        Alert.alert(t(mapped.titleKey), mapped.messagePlain ?? t(mapped.messageKey));
+        const detailMessage = mapped.messagePlain ?? t(mapped.messageKey);
+        void AccessibilityInfo.announceForAccessibility(`${t(mapped.titleKey)}. ${detailMessage}`);
+        Alert.alert(t(mapped.titleKey), detailMessage);
       },
     });
   }, [
+    activeSubmitHintKey,
     amountMajorNormalized,
     currencyResolved,
     dateYmd,
@@ -589,6 +780,7 @@ export function AddExpenseScreen({
     submitBlockerKey,
     t,
     title,
+    revealSubmitBlocker,
   ]);
 
   if (!isUuid(groupId)) {
@@ -756,6 +948,7 @@ export function AddExpenseScreen({
           keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
         >
           <ScrollView
+            ref={scrollRef}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
             style={{ flex: 1 }}
@@ -769,85 +962,126 @@ export function AddExpenseScreen({
           >
             {/* ── HEADER: [X]   NEW EXPENSE · GROUP   INR ⌄ ── */}
             <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                minHeight: sz.touchMin,
-                marginBottom: space.gapMd,
-              }}
+              onLayout={captureScrollAnchor('date')}
+              style={{ gap: space.gapXs, marginBottom: space.gapMd }}
             >
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('expenses.add.modern.closeA11y')}
-                accessibilityHint={t('expenses.add.modern.closeHint')}
-                onPress={() => {
-                  void Haptics.selectionAsync().catch(() => {});
-                  onClose();
-                }}
-                hitSlop={14}
-                style={({ pressed }) => ({
-                  width: sz.touchMin,
-                  height: sz.touchMin,
-                  alignItems: 'flex-start',
-                  justifyContent: 'center',
-                  opacity: pressed ? 0.7 : 1,
-                })}
-              >
-                <Ionicons name="close" size={22} color={palette.textPrimary} />
-              </Pressable>
-
-              <View style={{ flex: 1, alignItems: 'center', paddingHorizontal: space.gap }}>
-                <Text
-                  numberOfLines={1}
-                  ellipsizeMode="middle"
-                  style={{
-                    fontFamily: typography.fontFamily.sans.medium,
-                    fontSize: typography.fontSize.xs,
-                    letterSpacing: typography.letterSpacing.widest,
-                    textTransform: 'uppercase',
-                    color: palette.textPrimary,
-                    maxWidth: '100%',
-                  }}
-                >
-                  {headerTitle}
-                </Text>
-              </View>
-
               <View
-                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' }}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  minHeight: sz.touchMin,
+                }}
               >
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={t('expenses.add.modern.dateCurrencyTitle')}
+                  accessibilityLabel={t('expenses.add.modern.closeA11y')}
+                  accessibilityHint={t('expenses.add.modern.closeHint')}
                   onPress={() => {
                     void Haptics.selectionAsync().catch(() => {});
-                    metaSheetRef.current?.present();
+                    onClose();
                   }}
-                  hitSlop={10}
+                  hitSlop={14}
                   style={({ pressed }) => ({
-                    flexDirection: 'row',
-                    alignItems: 'center',
+                    width: sz.touchMin,
+                    height: sz.touchMin,
+                    alignItems: 'flex-start',
                     justifyContent: 'center',
-                    minWidth: sz.touchMin,
-                    minHeight: sz.touchMin,
-                    paddingHorizontal: space.gapSm,
                     opacity: pressed ? 0.7 : 1,
                   })}
                 >
+                  <Ionicons name="close" size={22} color={palette.textPrimary} />
+                </Pressable>
+
+                <View style={{ flex: 1, alignItems: 'center', paddingHorizontal: space.gap }}>
                   <Text
+                    numberOfLines={1}
+                    ellipsizeMode="middle"
                     style={{
-                      fontFamily: typography.fontFamily.sans.semiBold,
-                      fontSize: typography.fontSize.sm,
+                      fontFamily: typography.fontFamily.sans.medium,
+                      fontSize: typography.fontSize.xs,
+                      letterSpacing: typography.letterSpacing.widest,
+                      textTransform: 'uppercase',
                       color: palette.textPrimary,
-                      marginRight: space.gapXs,
+                      maxWidth: '100%',
                     }}
                   >
-                    {currencyResolved.toUpperCase()}
+                    {headerTitle}
                   </Text>
-                  <Ionicons name="chevron-down" size={14} color={palette.iconMuted} />
-                </Pressable>
+                </View>
+
+                <View
+                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' }}
+                >
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t('expenses.add.modern.dateCurrencyTitle')}
+                    accessibilityHint={dateCurrencyFieldA11yHint}
+                    onPress={() => {
+                      void Haptics.selectionAsync().catch(() => {});
+                      metaSheetRef.current?.present();
+                    }}
+                    hitSlop={10}
+                    style={({ pressed }) => ({
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      minWidth: sz.touchMin,
+                      minHeight: sz.touchMin,
+                      paddingHorizontal: space.gapSm,
+                      opacity: pressed ? 0.7 : 1,
+                      borderRadius: radius.sm,
+                      borderWidth: dateCardBlocked ? StyleSheet.hairlineWidth : 0,
+                      borderColor: dateCardBlocked ? palette.warningBorder : 'transparent',
+                    })}
+                  >
+                    <Text
+                      style={{
+                        fontFamily: typography.fontFamily.sans.semiBold,
+                        fontSize: typography.fontSize.sm,
+                        color: palette.textPrimary,
+                        marginRight: space.gapXs,
+                      }}
+                    >
+                      {currencyResolved.toUpperCase()}
+                    </Text>
+                    <Ionicons name="chevron-down" size={14} color={palette.iconMuted} />
+                  </Pressable>
+                </View>
               </View>
+
+              {dateCardBlocked && activeSubmitHintKey ? (
+                <Text
+                  accessibilityRole="text"
+                  accessibilityLiveRegion="polite"
+                  style={{
+                    fontFamily: typography.fontFamily.mono.regular,
+                    fontSize: typography.fontSize['2xs'],
+                    letterSpacing: typography.letterSpacing.widest,
+                    textTransform: 'uppercase',
+                    color: palette.warningText,
+                  }}
+                >
+                  {t(activeSubmitHintKey)}
+                </Text>
+              ) : null}
+
+              {!isEdit && ledgerCurrency !== null && currencyResolved !== ledgerCurrency ? (
+                <Text
+                  style={{
+                    fontFamily: typography.fontFamily.mono.regular,
+                    fontSize: typography.fontSize['2xs'],
+                    letterSpacing: typography.letterSpacing.widest,
+                    textTransform: 'uppercase',
+                    color: palette.textMuted,
+                  }}
+                >
+                  {t('expenses.add.modern.currencyMismatchMono', {
+                    expense: currencyResolved.toUpperCase(),
+                    ledger: ledgerCurrency,
+                  })}
+                </Text>
+              ) : null}
             </View>
 
             {offline ? (
@@ -885,20 +1119,51 @@ export function AddExpenseScreen({
             ) : null}
 
             {/* ── AMOUNT (flush, no card) ── */}
-            <View style={{ gap: space.gap }}>
+            <View onLayout={captureScrollAnchor('amount')} style={{ gap: space.gap }}>
               <SectionLabel>{t('expenses.add.fieldAmount')}</SectionLabel>
-              <AmountHero value={amount} currency={currencyResolved} onChange={setAmount} />
-              {amountCardBlocked ? (
-                <View style={{ height: 1, backgroundColor: palette.warningText }} />
-              ) : null}
+              <AmountHero
+                accessibilityHint={amountFieldA11yHint}
+                inputRef={amountInputRef}
+                value={amount}
+                currency={currencyResolved}
+                onChange={setAmount}
+              />
+              {amountCardBlocked && activeSubmitHintKey ? (
+                <Text
+                  accessibilityRole="alert"
+                  accessibilityLiveRegion="polite"
+                  style={{
+                    fontFamily: typography.fontFamily.mono.regular,
+                    fontSize: typography.fontSize['2xs'],
+                    letterSpacing: typography.letterSpacing.widest,
+                    textTransform: 'uppercase',
+                    color: palette.warningText,
+                  }}
+                >
+                  {t(activeSubmitHintKey)}
+                </Text>
+              ) : (
+                <Text
+                  style={{
+                    fontFamily: typography.fontFamily.mono.regular,
+                    fontSize: typography.fontSize['2xs'],
+                    letterSpacing: typography.letterSpacing.widest,
+                    textTransform: 'uppercase',
+                    color: palette.textMuted,
+                  }}
+                >
+                  {t('expenses.add.modern.amountEntryFormatMono')}
+                </Text>
+              )}
             </View>
 
             {/* ── PAID BY (kicker on canvas; white rounded row) ── */}
-            <View style={{ alignSelf: 'stretch', gap: space.gap }}>
+            <View onLayout={captureScrollAnchor('paidBy')} style={{ alignSelf: 'stretch', gap: space.gap }}>
               <SectionLabel>{t('expenses.add.modern.paidByKicker')}</SectionLabel>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`${t('expenses.add.modern.paidByKicker')}. ${payerName}. ${t('expenses.add.premium.membersRowHint')}`}
+                accessibilityLabel={`${t('expenses.add.modern.paidByKicker')}. ${payerName}`}
+                accessibilityHint={paidByFieldA11yHint}
                 onPress={openMembers}
                 style={({ pressed }) => ({
                   position: 'relative',
@@ -993,10 +1258,26 @@ export function AddExpenseScreen({
                   <Ionicons name="chevron-forward" size={18} color={palette.iconMuted} />
                 </View>
               </Pressable>
+              {peopleCardBlocked && activeSubmitHintKey ? (
+                <Text
+                  accessibilityRole="alert"
+                  accessibilityLiveRegion="polite"
+                  style={{
+                    fontFamily: typography.fontFamily.mono.regular,
+                    fontSize: typography.fontSize['2xs'],
+                    letterSpacing: typography.letterSpacing.widest,
+                    textTransform: 'uppercase',
+                    color: palette.warningText,
+                  }}
+                >
+                  {t(activeSubmitHintKey)}
+                </Text>
+              ) : null}
             </View>
 
             <View style={{ alignSelf: 'stretch', gap: space.gapMd }}>
               {/* ── WHAT FOR + NOTE (single card, divider) ── */}
+              <View onLayout={captureScrollAnchor('title')} style={{ gap: space.gapMd }}>
               <View
                 style={{
                   alignSelf: 'stretch',
@@ -1047,7 +1328,10 @@ export function AddExpenseScreen({
                       selectionColor={palette.accent}
                       cursorColor={palette.accent}
                       accessibilityLabel={t('expenses.add.premium.titleInputA11y')}
-                      returnKeyType="done"
+                      accessibilityHint={titleFieldA11yHint}
+                      blurOnSubmit={false}
+                      returnKeyType="next"
+                      onSubmitEditing={() => noteInputRef.current?.focus()}
                       style={{
                         alignSelf: 'stretch',
                         fontFamily: typography.fontFamily.sans.semiBold,
@@ -1059,6 +1343,21 @@ export function AddExpenseScreen({
                         includeFontPadding: false,
                       }}
                     />
+                    {showTitleClassifyChecking ? (
+                      <Text
+                        accessibilityRole="text"
+                        accessibilityLiveRegion="polite"
+                        style={{
+                          fontFamily: typography.fontFamily.mono.regular,
+                          fontSize: typography.fontSize['2xs'],
+                          letterSpacing: typography.letterSpacing.widest,
+                          textTransform: 'uppercase',
+                          color: palette.textMuted,
+                        }}
+                      >
+                        {t('expenses.add.modern.classifyCheckingMono')}
+                      </Text>
+                    ) : null}
                   </View>
                 </Pressable>
 
@@ -1112,6 +1411,7 @@ export function AddExpenseScreen({
                       multiline
                       scrollEnabled={false}
                       accessibilityLabel={t('expenses.add.premium.rowNotes')}
+                      accessibilityHint={t('expenses.add.modern.notesFieldHint')}
                       style={{
                         alignSelf: 'stretch',
                         fontFamily: typography.fontFamily.sans.regular,
@@ -1129,9 +1429,29 @@ export function AddExpenseScreen({
                 </Pressable>
               </View>
 
+              {titleCardBlocked && activeSubmitHintKey ? (
+                <Text
+                  accessibilityRole="alert"
+                  accessibilityLiveRegion="polite"
+                  style={{
+                    fontFamily: typography.fontFamily.mono.regular,
+                    fontSize: typography.fontSize['2xs'],
+                    letterSpacing: typography.letterSpacing.widest,
+                    textTransform: 'uppercase',
+                    color: palette.warningText,
+                  }}
+                >
+                  {t(activeSubmitHintKey)}
+                </Text>
+              ) : null}
+              </View>
+
               {/* ── SPLIT ── */}
+              <View onLayout={captureScrollAnchor('split')} style={{ gap: space.gapMd }}>
               <SectionCard
                 kicker={t('expenses.add.modern.splitMethodKicker')}
+                accessibilityLabel={t('expenses.add.modern.splitSectionA11y')}
+                accessibilityHint={splitSectionA11yHint}
                 onPress={openSplit}
                 hideChevron
                 hasError={splitCardBlocked}
@@ -1152,6 +1472,23 @@ export function AddExpenseScreen({
                   hasError={splitCardBlocked}
                 />
               </SectionCard>
+
+              {splitCardBlocked && activeSubmitHintKey ? (
+                <Text
+                  accessibilityRole="alert"
+                  accessibilityLiveRegion="polite"
+                  style={{
+                    fontFamily: typography.fontFamily.mono.regular,
+                    fontSize: typography.fontSize['2xs'],
+                    letterSpacing: typography.letterSpacing.widest,
+                    textTransform: 'uppercase',
+                    color: palette.warningText,
+                  }}
+                >
+                  {t(activeSubmitHintKey)}
+                </Text>
+              ) : null}
+            </View>
             </View>
 
             {/* ── PEOPLE ── */}
@@ -1235,13 +1572,14 @@ export function AddExpenseScreen({
                     ? t('expenses.add.submitting')
                     : t('expenses.add.submit')
               }
-              accessibilityLabel={
-                isEdit
-                  ? saveMutation.isPending
-                    ? t('expenses.edit.submitting')
-                    : t('expenses.edit.ctaA11y')
-                  : t('expenses.add.submitA11y')
+              subtitle={
+                saveMutation.isPending
+                  ? isEdit
+                    ? t('expenses.edit.submittingSubtitle')
+                    : t('expenses.add.submittingSubtitle')
+                  : undefined
               }
+              accessibilityLabel={submitCtaAccessibilityLabel}
               disabled={footerInteractDisabled}
               loading={saveMutation.isPending}
               borderRadius={radius.xl}
@@ -1254,9 +1592,10 @@ export function AddExpenseScreen({
       <SplitExpenseSheet
         sheetRef={splitSheetRef}
         splitType={splitType}
-        onChangeSplitType={setSplitType}
+        onChangeSplitType={onChangeSplitTypeWithSync}
         includedMembers={includedMembers}
         totalAmountMajor={amountMajorNormalized}
+        onChangeTotalAmountMajor={setAmount}
         currency={currencyResolved}
         currentUserId={me?.id}
         paidByUserId={paidByUserId}
@@ -1266,7 +1605,6 @@ export function AddExpenseScreen({
         setPercentByUserId={setPercentByUserId}
         sharesByUserId={sharesByUserId}
         setSharesByUserId={setSharesByUserId}
-        onSave={onSplitSheetSave}
       />
 
       <MemberPickSheet
@@ -1285,8 +1623,9 @@ export function AddExpenseScreen({
         dateYmd={dateYmd}
         onDateChange={setDateYmd}
         currency={currency}
-        onCurrencyChange={setCurrency}
+        onCurrencyChange={setCurrencyFromSheet}
         onSave={() => metaSheetRef.current?.dismiss()}
+        dominantCurrencyCode={ledgerCurrency}
       />
     </SafeAreaView>
   );

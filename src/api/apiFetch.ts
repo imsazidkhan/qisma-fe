@@ -122,7 +122,9 @@ export async function apiFetch<T>(
     envelope = (await response.json()) as ApiEnvelope<T>;
   } catch (err) {
     if (__DEV__) {
-      logger.debug(`[apiFetch] ${method} ${endpoint} HTTP ${response.status} — body is not JSON`);
+      logger.devHttpTrace(
+        `${method} ${url} HTTP ${response.status} — body is not JSON`,
+      );
     }
     throw new ApiError({
       code: CLIENT_ERROR_CODES.PARSE_ERROR,
@@ -133,11 +135,11 @@ export async function apiFetch<T>(
     });
   }
 
-  // Dev-only: full response body in Metro / terminal (may include sensitive fields — never ship with this relying on prod builds hiding __DEV__).
+  // Dev-only: pretty-printed envelope for readability; long bodies are chunked in `devHttpTrace`.
+  // May include sensitive fields — __DEV__ only.
   if (__DEV__) {
-    logger.debug(
-      `[apiFetch] ${method} ${endpoint} HTTP ${response.status}`,
-      JSON.stringify(envelope, null, 2),
+    logger.devHttpTrace(
+      `${method} ${url} HTTP ${response.status}\n${JSON.stringify(envelope, null, 2)}`,
     );
   }
 

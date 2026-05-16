@@ -7,7 +7,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } 
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
-  Alert,
   Platform,
   ScrollView,
   StyleSheet,
@@ -24,7 +23,6 @@ import { LuxurySplitPressable } from '@/features/expenses/components/splitLuxury
 import { useExpenseSplitState } from '@/features/expenses/hooks/useExpenseSplitState';
 import type { ExpenseSplitType } from '@/features/expenses/types/expense.types';
 import {
-  firstSplitSheetDismissBlocker,
   formatPercentTotalForDisplay,
   payerIsOnSplit,
   sumPercentsForParticipants,
@@ -41,6 +39,7 @@ import {
   luxuryInnerRowShadow,
   useSplitLuxuryPalette,
 } from '@/features/expenses/theme/splitLuxuryPalette';
+import { seedSplitMapsForTabTransition } from '@/features/expenses/utils/splitTabTransitionSeed';
 import { useGroupMembers } from '@/features/groups/hooks/useGroupMembers';
 import type { GroupMemberRosterEntry } from '@/features/groups/types/groupMember.types';
 import { isUuid } from '@/features/groups/utils/isUuid';
@@ -113,6 +112,42 @@ export function SplitExpenseLuxuryScreen({
 
   const amountMajorNormalized = amount.trim().replace(/,/g, '');
   const currencyResolved = useMemo(() => 'INR', []);
+
+  const onChangeSplitTypeWithSync = useCallback(
+    (next: ExpenseSplitType) => {
+      if (next === splitType) return;
+      const equalParts = computeEqualMajorPerPerson(
+        amountMajorNormalized,
+        includedIds.length,
+      );
+      const seed = seedSplitMapsForTabTransition(
+        splitType,
+        next,
+        includedIds,
+        amountMajorNormalized,
+        equalParts,
+        exactByUserId,
+        percentByUserId,
+        sharesByUserId,
+      );
+      if (seed.exactByUserId) setExactByUserId(seed.exactByUserId);
+      if (seed.percentByUserId) setPercentByUserId(seed.percentByUserId);
+      if (seed.sharesByUserId) setSharesByUserId(seed.sharesByUserId);
+      setSplitType(next);
+    },
+    [
+      amountMajorNormalized,
+      exactByUserId,
+      includedIds,
+      percentByUserId,
+      sharesByUserId,
+      setExactByUserId,
+      setPercentByUserId,
+      setSharesByUserId,
+      setSplitType,
+      splitType,
+    ],
+  );
 
   const splitSheetRef = useRef<BottomSheetModal | null>(null);
   const memberSheetRef = useRef<BottomSheetModal | null>(null);
@@ -267,15 +302,6 @@ export function SplitExpenseLuxuryScreen({
     void Haptics.selectionAsync().catch(() => {});
     memberSheetRef.current?.present();
   }, []);
-
-  const onSplitSheetSave = useCallback(() => {
-    const key = firstSplitSheetDismissBlocker(splitFormState, paidByUserId, includedIds);
-    if (key) {
-      Alert.alert(t('expenses.add.errorTitle'), t(key));
-      return;
-    }
-    splitSheetRef.current?.dismiss();
-  }, [includedIds, paidByUserId, splitFormState, t]);
 
   if (!isUuid(groupId)) {
     return (
@@ -731,9 +757,10 @@ export function SplitExpenseLuxuryScreen({
       <SplitExpenseSheet
         sheetRef={splitSheetRef}
         splitType={splitType}
-        onChangeSplitType={setSplitType}
+        onChangeSplitType={onChangeSplitTypeWithSync}
         includedMembers={includedMembers}
         totalAmountMajor={amountMajorNormalized}
+        onChangeTotalAmountMajor={setAmount}
         currency={currencyResolved}
         currentUserId={me?.id}
         paidByUserId={paidByUserId}
@@ -743,7 +770,6 @@ export function SplitExpenseLuxuryScreen({
         setPercentByUserId={setPercentByUserId}
         sharesByUserId={sharesByUserId}
         setSharesByUserId={setSharesByUserId}
-        onSave={onSplitSheetSave}
       />
 
       <MemberPickSheet

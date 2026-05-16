@@ -31,6 +31,8 @@ export type MetaPickSheetProps = {
   currency: string;
   onCurrencyChange: (code: string) => void;
   onSave: () => void;
+  /** Group ledger / dominant currency — shown as context under quick picks. */
+  dominantCurrencyCode?: string | null;
 };
 
 export function MetaPickSheet({
@@ -40,6 +42,7 @@ export function MetaPickSheet({
   currency,
   onCurrencyChange,
   onSave,
+  dominantCurrencyCode,
 }: MetaPickSheetProps): ReactElement {
   const { t } = useTranslation();
   const palette = useThemeColors();
@@ -66,8 +69,13 @@ export function MetaPickSheet({
   return (
     <BottomSheetModal
       ref={sheetRef}
+      stackBehavior="push"
       snapPoints={snapPoints}
+      enableDynamicSizing={false}
       enablePanDownToClose
+      enableBlurKeyboardOnGesture
+      topInset={insets.top}
+      bottomInset={insets.bottom}
       backdropComponent={renderBackdrop}
       handleIndicatorStyle={{
         backgroundColor: palette.borderStrong,
@@ -224,6 +232,23 @@ export function MetaPickSheet({
             );
           })}
         </View>
+
+        {typeof dominantCurrencyCode === 'string' && dominantCurrencyCode.trim() !== '' ? (
+          <Text
+            style={{
+              fontFamily: typography.fontFamily.mono.regular,
+              fontSize: typography.fontSize['2xs'],
+              letterSpacing: typography.letterSpacing.widest,
+              textTransform: 'uppercase',
+              color: palette.textMuted,
+              marginTop: space.gapMd,
+            }}
+          >
+            {t('expenses.add.currencyHelper', {
+              code: dominantCurrencyCode.trim().toUpperCase(),
+            })}
+          </Text>
+        ) : null}
       </BottomSheetScrollView>
 
       <View

@@ -1,9 +1,9 @@
 import { Image } from 'expo-image';
 import type { ReactElement, ReactNode } from 'react';
 import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { radius, space, typography, useThemeColors } from '@/theme';
+import { opacity, radius, size, space, spacing, typography, useThemeColors } from '@/theme';
 
 export type SplitSheetParticipantRowProps = {
   avatarLetter: string;
@@ -14,6 +14,15 @@ export type SplitSheetParticipantRowProps = {
   amountNode: ReactNode;
   percentLine: string | null;
   isLast: boolean;
+  /**
+   * When false, the row is omitted from the accessibility tree so nested controls
+   * (e.g. TextInputs) expose their own labels when focused.
+   */
+  includeRowInAccessibilityTree?: boolean;
+  /** Subtle press feedback for read-only rows (e.g. equal split). */
+  onRowPress?: () => void;
+  /** Equal split: more vertical padding so single-line rows match perceived rhythm of other tabs. */
+  rowVerticalDensity?: 'compact' | 'comfortable';
 };
 
 export function SplitSheetParticipantRow({
@@ -24,9 +33,14 @@ export function SplitSheetParticipantRow({
   amountNode,
   percentLine,
   isLast,
+  includeRowInAccessibilityTree = true,
+  onRowPress,
+  rowVerticalDensity = 'compact',
 }: SplitSheetParticipantRowProps): ReactElement {
   const palette = useThemeColors();
   const [imageFailed, setImageFailed] = useState(false);
+
+  const rowPaddingVertical = rowVerticalDensity === 'comfortable' ? space.gap : spacing['0.5'];
 
   const uri = avatarUrl?.trim() ?? '';
   const showImage = uri.length > 0 && !imageFailed;
@@ -39,37 +53,37 @@ export function SplitSheetParticipantRow({
     setImageFailed(true);
   }, []);
 
-  return (
+  const rowContent = (
     <View
       style={{
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: space.gap,
-        paddingHorizontal: space.gap,
-        gap: space.gap,
-        borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
-        borderBottomColor: palette.borderSubtle,
+        paddingVertical: rowPaddingVertical,
+        paddingLeft: space.gapXs,
+        paddingRight: spacing['2.5'],
+        gap: space.gapXs,
       }}
-      accessibilityLabel={`${titleUpper}. ${metaLine ?? ''}`}
+      accessible={includeRowInAccessibilityTree && !onRowPress ? undefined : false}
+      {...(includeRowInAccessibilityTree && !onRowPress
+        ? { accessibilityLabel: `${titleUpper}. ${metaLine ?? ''}` }
+        : {})}
     >
       <View
         style={{
-          width: 36,
-          height: 36,
+          width: size.avatarXs,
+          height: size.avatarXs,
           borderRadius: radius.full,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: palette.border,
           overflow: 'hidden',
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: palette.surfaceElevated,
+          backgroundColor: palette.surfaceFloating,
         }}
         accessibilityElementsHidden
       >
         {showImage ? (
           <Image
             source={{ uri }}
-            style={{ width: 36, height: 36 }}
+            style={{ width: size.avatarXs, height: size.avatarXs }}
             contentFit="cover"
             accessibilityIgnoresInvertColors
             onError={onImageError}
@@ -78,7 +92,7 @@ export function SplitSheetParticipantRow({
           <Text
             style={{
               fontFamily: typography.fontFamily.mono.medium,
-              fontSize: typography.fontSize.xs,
+              fontSize: typography.fontSize['2xs'],
               color: palette.textSecondary,
             }}
             numberOfLines={1}
@@ -87,43 +101,60 @@ export function SplitSheetParticipantRow({
           </Text>
         )}
       </View>
-      <View style={{ flex: 1, minWidth: 0 }}>
+      <View style={{ flex: 1, minWidth: 0, justifyContent: 'center' }}>
         <Text
           style={{
             fontFamily: typography.fontFamily.sans.semiBold,
             fontSize: typography.fontSize.sm,
+            fontWeight: typography.fontWeight.semibold,
             color: palette.textPrimary,
-            letterSpacing: typography.letterSpacing.wide,
-            textTransform: 'uppercase',
+            letterSpacing: typography.letterSpacing.tight,
           }}
           numberOfLines={1}
         >
           {titleUpper}
         </Text>
         {metaLine ? (
-          <Text
+          <View
             style={{
-              marginTop: 2,
-              fontFamily: typography.fontFamily.mono.regular,
-              fontSize: typography.fontSize['2xs'],
-              color: palette.textMuted,
-              letterSpacing: typography.letterSpacing.widest,
-              textTransform: 'uppercase',
+              marginTop: space.iconGapSm,
+              alignSelf: 'flex-start',
+              paddingVertical: spacing.px,
+              paddingHorizontal: spacing['0.5'],
+              borderRadius: radius.full,
+              backgroundColor: palette.overlay,
             }}
-            numberOfLines={1}
           >
-            {metaLine}
-          </Text>
+            <Text
+              style={{
+                fontFamily: typography.fontFamily.sans.medium,
+                fontSize: typography.fontSize['2xs'],
+                fontWeight: typography.fontWeight.medium,
+                color: palette.textSecondary,
+                letterSpacing: typography.letterSpacing.normal,
+              }}
+              numberOfLines={1}
+            >
+              {metaLine}
+            </Text>
+          </View>
         ) : null}
       </View>
-      <View style={{ alignItems: 'flex-end', minWidth: 88 }}>
+      <View
+        style={{
+          alignItems: 'flex-end',
+          justifyContent: 'center',
+          minWidth: 72,
+        }}
+      >
         <View style={{ alignItems: 'flex-end' }}>{amountNode}</View>
         {percentLine ? (
           <Text
             style={{
-              marginTop: 4,
-              fontFamily: typography.fontFamily.mono.medium,
+              marginTop: space.iconGapSm,
+              fontFamily: typography.fontFamily.mono.regular,
               fontSize: typography.fontSize['2xs'],
+              fontWeight: typography.fontWeight.regular,
               color: palette.textMuted,
               letterSpacing: typography.letterSpacing.wide,
             }}
@@ -132,6 +163,39 @@ export function SplitSheetParticipantRow({
           </Text>
         ) : null}
       </View>
+    </View>
+  );
+
+  return (
+    <View collapsable={false}>
+      {onRowPress ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={
+            includeRowInAccessibilityTree ? `${titleUpper}. ${metaLine ?? ''}` : undefined
+          }
+          onPress={onRowPress}
+          style={({ pressed }) => ({
+            backgroundColor: pressed ? palette.surfaceFloating : 'transparent',
+            opacity: pressed ? opacity.high : opacity.opaque,
+          })}
+        >
+          {rowContent}
+        </Pressable>
+      ) : (
+        rowContent
+      )}
+      {!isLast ? (
+        <View
+          style={{
+            marginLeft: space.gapXs,
+            marginRight: spacing['2.5'],
+            height: StyleSheet.hairlineWidth,
+            backgroundColor: palette.borderSubtle,
+            opacity: opacity.subtle,
+          }}
+        />
+      ) : null}
     </View>
   );
 }

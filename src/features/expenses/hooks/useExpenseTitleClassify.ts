@@ -1,18 +1,39 @@
+import type { UseQueryResult } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
 
 import { classifyExpenseTitle } from '@/features/expenses/api/expenseClassifyApi';
+import type { ExpenseClassifyResponse } from '@/features/expenses/types/expenseTaxonomy.types';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 
-export function useExpenseTitleClassify(title: string, options?: { enabled?: boolean }) {
-  const debounced = useDebouncedValue(title.trim(), 400);
-  const { isOnline, isReady } = useNetworkStatus();
-  const enabled = (options?.enabled ?? true) && isReady && isOnline && debounced.length >= 3;
+export type ExpenseTitleClassifyQuery = UseQueryResult<ExpenseClassifyResponse, Error>;
 
-  return useQuery({
-    queryKey: ['expenses', 'classify', debounced],
-    queryFn: ({ signal }) => classifyExpenseTitle(debounced, signal),
-    enabled,
+export function useExpenseTitleClassify(
+  title: string,
+  options?: { enabled?: boolean },
+): {
+  classifyQuery: ExpenseTitleClassifyQuery;
+  debouncedTitle: string;
+  showTitleClassifyChecking: boolean;
+} {
+  const trimmed = title.trim();
+  const debouncedTitle = useDebouncedValue(trimmed, 400);
+  const { isOnline, isReady } = useNetworkStatus();
+  const classifyEnabled =
+    (options?.enabled ?? true) && isReady && isOnline && debouncedTitle.length >= 3;
+
+  const classifyQuery = useQuery({
+    queryKey: ['expenses', 'classify', debouncedTitle],
+    queryFn: ({ signal }) => classifyExpenseTitle(debouncedTitle, signal),
+    enabled: classifyEnabled,
     staleTime: 120_000,
   });
+
+  const showTitleClassifyChecking =
+    trimmed.length >= 3 &&
+    isReady &&
+    isOnline &&
+    (trimmed !== debouncedTitle || (classifyEnabled && classifyQuery.isFetching));
+
+  return { classifyQuery, debouncedTitle, showTitleClassifyChecking };
 }

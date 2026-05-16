@@ -38,6 +38,9 @@ export const STORAGE_KEYS = {
    * Cleared on sign-out is optional — mismatch on new user shows the sheet again.
    */
   invitesPostSignInPromptDismissedUserId: 'qisma.invites.postSignIn.dismissedUserId',
+
+  /** Last split method chosen on Add expense (non-sensitive UX preference). */
+  expenseLastSplitType: 'qisma.expense.lastSplitType',
 } as const;
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];

@@ -24,13 +24,20 @@ export type AmountHeroProps = {
   currency: string;
   onChange: (next: string) => void;
   inputRef?: RefObject<TextInput | null>;
+  accessibilityHint?: string;
 };
 
 const AMOUNT_LINE_HEIGHT_RATIO = 1.02;
 /** Currency glyph — sized to read as part of the same number block. */
 const CURRENCY_SYMBOL_SIZE_KEY = '4xl' as const;
 
-export function AmountHero({ value, currency, onChange, inputRef }: AmountHeroProps): ReactElement {
+export function AmountHero({
+  value,
+  currency,
+  onChange,
+  inputRef,
+  accessibilityHint,
+}: AmountHeroProps): ReactElement {
   const { t } = useTranslation();
   const palette = useThemeColors();
   const themeMode = useThemeMode();
@@ -141,8 +148,8 @@ export function AmountHero({ value, currency, onChange, inputRef }: AmountHeroPr
 
   return (
     <Pressable
-      accessibilityRole="summary"
-      accessibilityLabel={t('expenses.add.premium.amountA11y')}
+      accessibilityRole="button"
+      accessible={false}
       onPress={bumpSelection}
       style={{ alignSelf: 'stretch', paddingBottom: 0 }}
     >
@@ -174,7 +181,7 @@ export function AmountHero({ value, currency, onChange, inputRef }: AmountHeroPr
           ref={ref}
           value={displayCore}
           onChangeText={(raw) => {
-            const next = sanitizeAmountTyping(raw.replace(/,/g, ''));
+            const next = sanitizeAmountTyping(raw);
             if (next !== value) {
               void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
               bumpKeypadFeedback();
@@ -185,6 +192,8 @@ export function AmountHero({ value, currency, onChange, inputRef }: AmountHeroPr
           keyboardAppearance={themeMode === 'dark' ? 'dark' : 'light'}
           cursorColor={palette.accent}
           selectionColor={palette.accent}
+          accessibilityLabel={t('expenses.add.premium.amountA11y')}
+          accessibilityHint={accessibilityHint}
           onFocus={() => {
             setFocused(true);
             void Haptics.selectionAsync().catch(() => {});

@@ -6,16 +6,25 @@ import { radius, space, spacing, textStyles, typography } from '@/theme';
 const PROFILE_ROW_ICON_BOX = 40;
 
 export const profileScreenStyles = StyleSheet.create({
+  /** Natural height — avoid flexGrow so stacked sections appear without a dead zone. */
   scrollContent: {
-    flexGrow: 1,
-    paddingTop: space.gapMd,
+    paddingTop: space.gapSm,
     alignSelf: 'stretch',
     width: '100%',
   },
-  screenHeader: {
+  /** Title + one visible edit glyph — no extra chrome. */
+  screenHeaderRow: {
     alignSelf: 'stretch',
     width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space.gapMd,
     marginBottom: space.gapLg,
+  },
+  screenHeaderTitles: {
+    flex: 1,
+    minWidth: 0,
     gap: space.gapXs,
   },
   screenTitle: {
@@ -27,55 +36,74 @@ export const profileScreenStyles = StyleSheet.create({
     ...textStyles.caption,
     width: '100%',
   },
-  headerBlock: {
-    alignItems: 'center',
+  heroInnerGap: {
+    gap: space.gapMd,
     alignSelf: 'stretch',
-    paddingBottom: space.sectionGap,
+    width: '100%',
+    paddingVertical: space.paddingSm,
   },
-  avatarRing: {
-    width: 96,
-    height: 96,
+  heroIdentityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.gapMd,
+    alignSelf: 'stretch',
+    width: '100%',
+  },
+  heroTextColumn: {
+    flex: 1,
+    minWidth: 0,
+    gap: space.gapXs,
+    justifyContent: 'center',
+  },
+  heroAvatarRing: {
+    width: 76,
+    height: 76,
     borderRadius: radius.full,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
+    flexShrink: 0,
   },
-  avatarImage: {
-    width: 96,
-    height: 96,
+  heroAvatarImage: {
+    width: 76,
+    height: 76,
   },
-  avatarInitials: {
+  heroAvatarInitials: {
     fontFamily: typography.fontFamily.mono.medium,
-    fontSize: typography.fontSize['2xl'],
+    fontSize: typography.fontSize.xl,
     letterSpacing: typography.letterSpacing.tight,
   },
-  displayName: {
-    ...textStyles.h2,
+  heroDisplayName: {
+    ...textStyles.h3,
     letterSpacing: typography.letterSpacing.tight,
-    marginTop: space.gapLg,
-    textAlign: 'center',
+    textAlign: 'left',
     width: '100%',
   },
-  phoneLine: {
+  heroPhoneLine: {
     ...textStyles.body,
     fontFamily: typography.fontFamily.mono.regular,
     fontSize: typography.fontSize.sm,
     letterSpacing: typography.letterSpacing.wide,
-    marginTop: space.gapSm,
-    textAlign: 'center',
+    textAlign: 'left',
     width: '100%',
-  },
-  editProfileBtn: {
-    marginTop: space.gapLg,
-    minWidth: 200,
-    paddingHorizontal: space.gapLg,
-    alignSelf: 'center',
   },
   sectionGap: {
-    marginTop: space.sectionGap,
+    marginTop: space.gapLg,
     alignSelf: 'stretch',
     width: '100%',
+  },
+  signOutBlock: {
+    marginTop: space.gapXl,
+    alignSelf: 'stretch',
+    width: '100%',
+  },
+  footerMeta: {
+    alignSelf: 'stretch',
+    width: '100%',
+    alignItems: 'center',
+    marginTop: space.gapMd,
+    paddingBottom: space.gapSm,
   },
   sectionLabel: {
     fontFamily: typography.fontFamily.sans.semiBold,
@@ -181,14 +209,11 @@ export const profileScreenStyles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     marginLeft: PROFILE_ROW_ICON_BOX + space.gapMd,
   },
-  /** Profile hero — centered under display name. */
-  signOutPressable: {
-    alignSelf: 'center',
-    marginTop: space.gapSm,
-    paddingVertical: space.gapSm,
-    paddingHorizontal: space.gapMd,
-  },
-  signOutLabel: {
-    fontFamily: typography.fontFamily.sans.medium,
+  footerVersion: {
+    fontFamily: typography.fontFamily.mono.regular,
+    fontSize: typography.fontSize['2xs'],
+    letterSpacing: typography.letterSpacing.wide,
+    textTransform: 'uppercase',
+    textAlign: 'center',
   },
 });
